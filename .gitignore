@@ -1,0 +1,23 @@
+# Ignore pyc files
+*.pyc
+*__pycache__
+ 
+# Ignore IDE files
+.idea
+.project
+.pydevproject
+.vscode
+.settings
+ 
+# Ignore sqlite databases
+*.sqlite3 
+
+# Ignore code coverage reports
+.coverage
+htmlcov
+
+# Vim temporary files
+*.swp
+*.un
+*.un~
+
