@@ -36,12 +36,15 @@ CSRF_USE_SESSIONS = False
 ####################################################################################################
 
 INSTALLED_APPS = [
+    # Django Apps
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # Project Apps
+    'apps.core.apps.CoreConfig'
 ]
 
 
