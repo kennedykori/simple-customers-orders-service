@@ -136,3 +136,20 @@ MEDIA_URL = '/media/'
 
 STATIC_ROOT = BASE_DIR / 'static'
 STATIC_URL = '/static/'
+
+
+####################################################################################################
+# DRF
+####################################################################################################
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'PAGE_SIZE': 100,
+    'HTML_SELECT_CUTOFF': 1000
+}
