@@ -44,7 +44,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # Project Apps
-    'apps.core.apps.CoreConfig'
+    'apps.core.apps.CoreConfig',
+    'apps.shop.apps.ShopConfig'
 ]
 
 
