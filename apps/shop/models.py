@@ -8,14 +8,134 @@ from django.db import models, transaction
 from django.utils.timezone import now
 
 from ..core.enums import Choices
-from ..core.models import AuditBase
-
+from ..core.models import AuditBase, AuditBaseManager
 
 # Constants
 
 User = get_user_model()
 
 ZERO_AMOUNT = Decimal('0.00')
+
+
+# Managers
+
+class CustomerManager(AuditBaseManager):
+    """
+    Manager for the **Customer** model.
+    """
+
+    def create(self, creator: User = None, *args, **kwargs) -> Customer:
+        """
+        Creates a new **Customer** with the given properties and by the given
+        creator. The user property given must be a non-staff user, otherwise,
+        a **ValueError** will be raised.Returns the created customer instance.
+
+        :param creator: The user who initiated this create/request.
+        :param args: Positional arguments to use when creating the customer
+                     instance.
+        :param kwargs: Key word arguments to use when creating the customer
+                       instance.
+
+        :return: the created customer instance.
+
+        :raise ValueError: If the user property given is missing or is a staff
+                           user.
+        """
+        user: Optional[User] = kwargs.get('user', None)
+
+        # If the user property is missing or is a staff user, raise ValueError
+        if not user:
+            raise ValueError(
+                'You must provide the "user" property as a keyword argument'
+            )
+        elif user.is_staff:
+            raise ValueError('The "user" property must be a non staff user.')
+
+        return super().create(creator, *args, **kwargs)
+
+
+class EmployeeManager(AuditBaseManager):
+    """
+    Manager for the **Employee** model.
+    """
+
+    def create(self, creator: User = None, *args, **kwargs) -> Employee:
+        """
+        Creates a new **Employee** with the given properties and by the given
+        creator. The user property given must be a staff user, otherwise, a
+        **ValueError** will be raised. Also, only staff members can add new
+        employees. Therefore if the  *creator* argument is provided, the value
+        must be a staff user or else a **ValueError** will be raised. Returns
+        the created employee instance.
+
+        :param creator: The user who initiated this create/request.
+        :param args: Positional arguments to use when creating the employee
+                     instance.
+        :param kwargs: Key word arguments to use when creating the employee
+                       instance.
+
+        :return: the created employee instance.
+
+        :raise ValueError: If the user property given is missing or is a
+                           non-staff user. Also if the creator property given
+                           is not None and contains a non-staff user.
+        """
+        # If the creator argument is not None and is a non-staff user, raise
+        # ValueError
+        if creator and not creator.is_staff:
+            raise ValueError(
+                'Only staff members can add new employees, "creator" must be '
+                'a staff user.'
+            )
+
+        # Get the user property from the provided keyword arguments
+        user: Optional[User] = kwargs.get('user', None)
+
+        # If the user property is missing or is a non-staff user, raise
+        # ValueError
+        if not user:
+            raise ValueError(
+                'You must provide the "user" property as a keyword argument'
+            )
+        elif not user.is_staff:
+            raise ValueError('The "user" property must be a staff user.')
+
+        return super().create(creator, *args, **kwargs)
+
+
+class InventoryManager(AuditBaseManager):
+    """
+    Manager for the **Inventory** model.
+    """
+
+    def create(self, creator: User = None, *args, **kwargs) -> Inventory:
+        """
+        Creates a new **Inventory** with the given properties and by the given
+        creator. Only staff members can add new inventory items. Therefore if
+        the  *creator* argument is provided, the value must be a staff user or
+        else a **ValueError** will be raised. Returns the created inventory
+        item instance.
+
+        :param creator: The user who initiated this create/request.
+        :param args: Positional arguments to use when creating the inventory
+                     item.
+        :param kwargs: Key word arguments to use when creating the inventory
+                       item.
+
+        :return: the created inventory item.
+
+        :raise ValueError: If the creator property given is not None and
+                           contains a non-staff user.
+        """
+        # If the creator argument is not None and is a non-staff user, raise
+        # ValueError
+        if creator and not creator.is_staff:
+            raise ValueError(
+                'Only staff members can add new inventory items, "creator" '
+                'must be a staff user.'
+            )
+
+        return super().create(creator, *args, **kwargs)
 
 
 # Models
@@ -32,6 +152,8 @@ class Customer(AuditBase):
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT
     )
+    # Manager
+    objects = CustomerManager()
 
     def make_order(self) -> Order:
         """
@@ -51,6 +173,7 @@ class Employee(AuditBase):
     an employee is to review/handle customer orders but employees can also
     make orders on behalf of the customers.
     """
+
     class Gender(Choices):
         """
         This represents the gender of a person.
@@ -68,6 +191,8 @@ class Employee(AuditBase):
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT
     )
+    # Manager
+    objects = EmployeeManager()
 
     def __str__(self):
         return self.name
@@ -109,6 +234,8 @@ class Inventory(AuditBase):
         default=ZERO_AMOUNT
     )
     warn_limit = models.PositiveIntegerField(default=3)
+    # Manager
+    objects = InventoryManager()
 
     @property
     def is_available(self) -> bool:
@@ -568,10 +695,10 @@ class Order(AuditBase):
             )
 
         # If the order's item list is empty, raise an OrderEmptyError
-        if self.orderitem_set.exists():
+        if not self.orderitem_set.exists():
             raise OrderEmptyError(
                 self,
-                'An empty with no associated OrderItems cannot be '
+                'An order with no associated OrderItems cannot be '
                 'approved.'
             )
 
@@ -611,7 +738,7 @@ class Order(AuditBase):
 
         # If order is not in the "created" or "pending" state, raise an
         # OperationForbiddenError
-        if not(self.is_created or self.is_pending):
+        if not (self.is_created or self.is_pending):
             raise OperationForbiddenError(
                 self.STATE_CHANGE_FORBIDDEN_ERROR_MSG % {
                     'current_state': Order.OrderState.get_choice_name(
