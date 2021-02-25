@@ -43,6 +43,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # Third Party Apps
+    'dynamic_rest',
+    'oidc_provider',
+    'rest_framework',
     # Project Apps
     'apps.core.apps.CoreConfig',
     'apps.shop.apps.ShopConfig'
@@ -69,7 +73,7 @@ MIDDLEWARE = [
 ####################################################################################################
 
 APPEND_SLASH = True
-BASE_URL = "https://globalwitness.org"
+BASE_URL = "http://localhost:8000"
 INTERNAL_IPS = ["127.0.0.1"]
 ROOT_URLCONF = "config.urls"
 SECRET_KEY = os.environ['SECRET_KEY']
@@ -83,7 +87,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': ['assets/templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -98,7 +102,7 @@ TEMPLATES = [
 
 
 ####################################################################################################
-# Password validators
+# Auth
 ####################################################################################################
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -115,6 +119,10 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+LOGIN_REDIRECT_URL = '/api/'
+
+LOGIN_URL = '/accounts/login/'
 
 
 ####################################################################################################
@@ -135,7 +143,7 @@ USE_TZ = True
 MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
 
-STATIC_ROOT = BASE_DIR / 'static'
+STATIC_ROOT = BASE_DIR / 'assets' / 'static'
 STATIC_URL = '/static/'
 
 
@@ -147,10 +155,24 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
+        'oidc_auth.authentication.JSONWebTokenAuthentication',
+        'oidc_auth.authentication.BearerTokenAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
-    'PAGE_SIZE': 100,
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+        'dynamic_rest.renderers.DynamicBrowsableAPIRenderer'
+    ),
     'HTML_SELECT_CUTOFF': 1000
+}
+
+
+####################################################################################################
+# DRF
+####################################################################################################
+
+OIDC_AUTH = {
+    'OIDC_ENDPOINT': BASE_URL + '/accounts/'
 }

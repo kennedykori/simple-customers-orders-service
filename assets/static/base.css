@@ -1,0 +1,20 @@
+#dv_main_content {
+    margin: 1em;
+}
+
+div.horizontal.centered {
+    display: flex !important;
+    justify-content: center !important;
+}
+
+.text_align.center {
+    text-align: center;
+}
+
+.text_align.start {
+    text-align: start;
+}
+
+.text_align.end {
+    text-align: end;
+}
