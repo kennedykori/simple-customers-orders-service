@@ -1,7 +1,15 @@
 from typing import Dict
 
-from dynamic_rest.serializers import DynamicModelSerializer
-from rest_framework.serializers import StringRelatedField
+from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+
+from dynamic_rest.serializers import (
+    DynamicModelSerializer,
+    WithDynamicSerializerMixin
+)
+
+from rest_framework import serializers
 
 from .models import AuditBase, BaseModel
 
@@ -33,11 +41,21 @@ class BaseSerializer(DynamicModelSerializer):
 class AuditBaseSerializer(BaseSerializer):
     """
     This is the base `Serializer` for all `AuditBase` models in this project.
+    Audit data is only available to admin users.
     """
-    created_by = StringRelatedField(read_only=True)
-    updated_by = StringRelatedField(read_only=True)
+    created_by = serializers.StringRelatedField(read_only=True)
+    updated_by = serializers.StringRelatedField(read_only=True)
 
-    def create(self, validated_data: Dict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Only show audit data to admin users
+        user = self.get_user_from_context()
+        if not(user and user.is_staff):
+            for field in ('created_by', 'updated_at', 'updated_by'):
+                self.fields.pop(field, None)
+
+    def create(self, validated_data: Dict) -> AuditBase:
         """
         Creates and returns a new model instance with the provided validated
         data. This implementation also adds the user who made the create
@@ -52,7 +70,7 @@ class AuditBaseSerializer(BaseSerializer):
         validated_data['creator'] = user
         return super().create(validated_data)
 
-    def get_user_from_context(self):
+    def get_user_from_context(self) -> User:
         """
         Finds and returns the user attached to this serializer's context or
         None if the user isn't found.
@@ -63,7 +81,7 @@ class AuditBaseSerializer(BaseSerializer):
         request = self.context.get('request')
         return request.user if request else None
 
-    def update(self, instance: AuditBase, validated_data: Dict):
+    def update(self, instance: AuditBase, validated_data: Dict) -> AuditBase:
         """
         Updates and returns the given instance with the given validated data.
         This implementation also adds the user who made the update request as
@@ -82,3 +100,47 @@ class AuditBaseSerializer(BaseSerializer):
     class Meta:
         abstract = True
         model = AuditBase
+
+
+# Serializers
+
+class ChangePasswordSerializer(
+        WithDynamicSerializerMixin, serializers.Serializer):
+    """
+    Serializer allows a user to change his/her password.
+    """
+    new_password = serializers.CharField()
+
+    def validate_new_password(self, value: str):
+        """
+        Validate that the new password passes all the set validators.
+        """
+        request = self.context.get('request')
+        user = request.user if request else None
+
+        try:
+            validate_password(value, user)
+        except ValidationError as err:
+            raise serializers.ValidationError(err.error_list)
+        return value
+
+
+class ChangeStaffStatusSerializer(
+        WithDynamicSerializerMixin, serializers.Serializer):
+    """
+    Serializer allows the the staff status of
+    """
+    is_staff = serializers.BooleanField()
+
+
+class UserSerializer(DynamicModelSerializer):
+    """
+    Serializer for the **django.contrib.auth.models.User** model.
+    """
+
+    class Meta:
+        model = User
+        name = 'user'
+        fields = ('id', 'username', 'email', 'is_staff', 'password')
+        extra_kwargs = {'password': {'write_only': True}}
+        read_only_fields = ('is_staff',)

@@ -28,7 +28,8 @@ urlpatterns = [
     path('accounts/login/', LogoutView.as_view(
         next_page=settings.LOGIN_URL),
         name='logout'
-    )
+    ),
+    path('api/', include('apps.core.urls'))
 ]
 
 if settings.DEBUG:
