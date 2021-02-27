@@ -4,10 +4,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
-from dynamic_rest.serializers import (
-    DynamicModelSerializer,
-    WithDynamicSerializerMixin
-)
+from dynamic_rest.serializers import DynamicModelSerializer
 
 from rest_framework import serializers
 
@@ -78,7 +75,7 @@ class AuditBaseSerializer(BaseSerializer):
         :return: the user attached to this serializer's context or None if the
         user isn't found.
         """
-        request = self.context.get('request')
+        request = self.context.get('request', None)
         return request.user if request else None
 
     def update(self, instance: AuditBase, validated_data: Dict) -> AuditBase:
@@ -104,12 +101,11 @@ class AuditBaseSerializer(BaseSerializer):
 
 # Serializers
 
-class ChangePasswordSerializer(
-        WithDynamicSerializerMixin, serializers.Serializer):
+class ChangePasswordSerializer(DynamicModelSerializer):
     """
     Serializer allows a user to change his/her password.
     """
-    new_password = serializers.CharField()
+    new_password = serializers.CharField(style={'input_type': 'password'})
 
     def validate_new_password(self, value: str):
         """
@@ -124,13 +120,24 @@ class ChangePasswordSerializer(
             raise serializers.ValidationError(err.error_list)
         return value
 
+    class Meta:
+        model = User
+        name = 'user'
+        fields = ('id', 'username', 'new_password')
+        read_only_fields = ('username',)
 
-class ChangeStaffStatusSerializer(
-        WithDynamicSerializerMixin, serializers.Serializer):
+
+class ChangeStaffStatusSerializer(DynamicModelSerializer):
     """
     Serializer allows the the staff status of
     """
-    is_staff = serializers.BooleanField()
+
+    class Meta:
+        model = User
+        name = 'user'
+        fields = ('id', 'username', 'is_staff')
+        read_only_fields = ('username',)
+        extra_kwargs = {'is_staff': {'required': True}}
 
 
 class UserSerializer(DynamicModelSerializer):
@@ -142,5 +149,10 @@ class UserSerializer(DynamicModelSerializer):
         model = User
         name = 'user'
         fields = ('id', 'username', 'email', 'is_staff', 'password')
-        extra_kwargs = {'password': {'write_only': True}}
+        extra_kwargs = {
+            'password': {
+                'style': {'input_type': 'password'},
+                'write_only': True
+            }
+        }
         read_only_fields = ('is_staff',)

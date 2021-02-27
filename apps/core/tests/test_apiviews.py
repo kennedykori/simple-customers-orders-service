@@ -95,9 +95,6 @@ class UserViewSetTests(APITestCase):
         Ensure that the **UserViewSet.change_staff_status** action works as
         expected.
         """
-        # Test data
-        response_data = {'is_staff': True}
-
         # Create test users
         admin: User = AdminFactory.create()
         user: User = UserFactory.create()
@@ -118,7 +115,6 @@ class UserViewSetTests(APITestCase):
         self.client.force_authenticate(user=admin)
         response = self.client.post(url, data, format='json')
         user.refresh_from_db()
-        self.assertDictEqual(response.data, response_data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(user.is_staff)
 

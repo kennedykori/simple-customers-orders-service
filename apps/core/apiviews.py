@@ -53,9 +53,9 @@ class UserViewSet(DynamicModelViewSet):
         """
         user = self.get_object()
         self.check_object_permissions(request, user)
-        serializer = ChangePasswordSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            user.set_password(serializer.data['new_password'])
+            user.set_password(serializer.data.get('user')['new_password'])
             user.save()
             return Response({'status': 'password changed'})
         else:
@@ -74,10 +74,11 @@ class UserViewSet(DynamicModelViewSet):
         Change the staff status the currently logged on user.
         """
         user = self.get_object()
-        serializer = ChangeStaffStatusSerializer(data=request.data)
+        serializer = self.get_serializer(user, data=request.data)
         if serializer.is_valid():
-            user.is_staff = serializer.data['is_staff']
-            user.save()
+            # user.is_staff = serializer.data.get('user')['is_staff']
+            # user.save()
+            serializer.save()
             return Response(serializer.data)
         else:
             return Response(
