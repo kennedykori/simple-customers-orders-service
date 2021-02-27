@@ -1,3 +1,5 @@
+from typing import Any, Union
+
 from django.contrib.auth import get_user_model
 
 from rest_framework.permissions import BasePermission
@@ -15,10 +17,13 @@ User = get_user_model()
 class IsOwner(BasePermission):
     """
     Object level permission to only allow owner of an object to modify it. The
-    owner of the object should be passed as the last argument of
-    *has_object_permission*.
+    object to check for permissions should either be a user instance or an
+    object with a "user" property containing the a user instance.
     """
 
     def has_object_permission(
-            self, request: Request, view: APIView, obj: User) -> bool:
-        return obj == request.user
+            self, request: Request,
+            view: APIView, obj:
+            Union[User, Any]) -> bool:
+        return obj == request.user or \
+               (hasattr(obj, 'user') and request.user == obj.user)
