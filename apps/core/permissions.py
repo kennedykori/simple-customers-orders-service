@@ -14,6 +14,18 @@ User = get_user_model()
 
 # Permissions
 
+class DenyAll(BasePermission):
+    """
+    Permission that forbids all access to an object or class.
+    """
+
+    def has_object_permission(self, request: Request, view: APIView, obj: Any) -> bool:
+        return False
+
+    def has_permission(self, request: Request, view: APIView) -> bool:
+        return False
+
+
 class IsOwner(BasePermission):
     """
     Object level permission to only allow owner of an object to modify it. The
