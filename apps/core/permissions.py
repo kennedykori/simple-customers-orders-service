@@ -2,7 +2,7 @@ from typing import Any, Union
 
 from django.contrib.auth import get_user_model
 
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 from rest_framework.request import Request
 from rest_framework.views import APIView
 
@@ -37,5 +37,18 @@ class IsOwner(BasePermission):
             self, request: Request,
             view: APIView, obj:
             Union[User, Any]) -> bool:
-        return obj == request.user or \
-               (hasattr(obj, 'user') and request.user == obj.user)
+        return bool(
+            request.user and (
+                    obj == request.user or
+                    (hasattr(obj, 'user') and request.user == obj.user)
+            )
+        )
+
+
+class ReadOnly(BasePermission):
+    """
+    Only permit read-only request.
+    """
+
+    def has_permission(self, request: Request, view: APIView):
+        return request.method in SAFE_METHODS
