@@ -29,7 +29,8 @@ urlpatterns = [
         next_page=settings.LOGIN_URL),
         name='logout'
     ),
-    path('api/', include('apps.core.urls'))
+    path('api/', include('apps.core.urls')),
+    path('api/', include('apps.shop.urls')),
 ]
 
 if settings.DEBUG:
