@@ -28,7 +28,7 @@ future==0.18.2
 gunicorn==20.0.4
 idna==2.10
 inflection==0.3.1
-ipython==7.20.0
+ipython==7.16.1
 ipython-genutils==0.2.0
 itypes==1.2.0
 jedi==0.18.0
@@ -40,7 +40,6 @@ mypy-extensions==0.4.3
 parso==0.8.1
 pexpect==4.8.0
 pickleshare==0.7.5
-powerline-status===2.8.1.dev9999-git.b-f401ee3106b027efabdbbd7b920868cefd8277c4-
 prompt-toolkit==3.0.16
 psycopg2==2.8.6
 ptyprocess==0.7.0
