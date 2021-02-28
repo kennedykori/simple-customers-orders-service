@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from django.conf import settings
 from django.db import models
 
@@ -110,16 +112,39 @@ class AuditBase(BaseModel):
         # Finish by saving the model instance
         super().save(*args, **kwargs)
 
-    def update(self, modifier=None, *args, **kwargs):
+    def update(self, modifier=None, **kwargs) -> AuditBase:
         """
-        Helper method that updates the calling instance and marks the given
-        user as the last modifier of this instance. Returns the updated
-        instance, i.e the calling instance.
+        This method takes the fields to update plus their values as key word
+        arguments and updates this instance to match that state. This is the
+        preferred method of updating **AuditBase** instances. This method
+        takes the user performing the update as the first parameter and marks
+        the user as the last modifier of this instance. The following
+        conditions hold:
 
-        :param modifier: The User who initiated the update action/request.
+        * If no key word arguments are provided, then no updates should be
+          performed, including the object's last update status and the object
+          should remain as is.
+        * Only the fields included in the *kwargs* argument are updated.
+
+        :param modifier: The user who initiated the update action/request.
+        :param kwargs: A dict of the instance fields and value to update with.
+
         :return: the updated instance.
         """
-        self.save(modifier, *args, **kwargs)
+        # If no key word arguments were provided, don't perform any updates,
+        # return the object as is.
+        if len(kwargs) == 0:
+            return self
+
+        # Update this object to match the given state
+        for field, value in kwargs.items():
+            setattr(self, field, value)
+
+        # TODO: Add support for many to many fields
+
+        # Update only the fields provided
+        updatable_fields = (*kwargs.keys(), 'updated_by')
+        self.save(modifier, update_fields=updatable_fields)
         return self
 
     class Meta:

@@ -1,0 +1,7 @@
+[run]
+branch = True
+command_line = manage.py test --settings=config.settings.test
+omit =
+    */tests/*
+    */migrations/*
+source = apps
