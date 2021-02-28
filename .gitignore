@@ -21,3 +21,5 @@ htmlcov
 *.un
 *.un~
 
+# Generated staticfiles
+staticfiles
