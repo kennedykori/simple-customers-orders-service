@@ -175,9 +175,21 @@ REST_FRAMEWORK = {
 
 
 ####################################################################################################
-# DRF
+# OIDC AUTH
 ####################################################################################################
 
 OIDC_AUTH = {
     'OIDC_ENDPOINT': BASE_URL + '/accounts/'
+}
+
+
+####################################################################################################
+# Africa's Talking API
+####################################################################################################
+
+AFRICASTALKING_API = {
+    'API_KEY': os.environ['AFRICASTALKING_API_KEY'],
+    'USERNAME': os.environ['AFRICASTALKING_USERNAME'],
+    'SMS_SENDER_ID': os.environ['AFRICASTALKING_SENDER_ID'],
+    'SMS_SHORT_CODE': os.environ['AFRICASTALKING_SHORT_CODE']
 }
