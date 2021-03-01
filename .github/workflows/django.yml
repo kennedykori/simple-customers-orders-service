@@ -8,6 +8,14 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  DATABASE_HOST: ${{ secrets.DATABASE_HOST }}
+  DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+  DATABASE_PORT: ${{ secrets.DATABASE_PORT }}
+  DATABASE_USER: ${{ secrets.DATABASE_USER }}
+  SECRET_KEY: ${{ secrets.SECRET_KEY }}
+  TEST_DATABASE_NAME: ${{ secrets.TEST_DATABASE_NAME }}
+
 jobs:
   build:
     name: Build and Run Tests
