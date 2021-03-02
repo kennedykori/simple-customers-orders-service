@@ -78,12 +78,24 @@ def notify_customer(
             return
 
         if instance.state == Order.OrderState.get_value('approved'):
-            SMS.send(ORDER_APPROVED_MSG, [instance.customer.phone_number])
+            SMS.send(
+                ORDER_APPROVED_MSG % instance.pk,
+                [instance.customer.phone_number]
+            )
         elif instance.state == Order.OrderState.get_value('canceled'):
-            SMS.send(ORDER_CANCELED_MSG, [instance.customer.phone_number])
+            SMS.send(
+                ORDER_CANCELED_MSG % instance.pk,
+                [instance.customer.phone_number]
+            )
         elif instance.state == Order.OrderState.get_value('pending'):
-            SMS.send(ORDER_PENDING_MSG, [instance.customer.phone_number])
+            SMS.send(
+                ORDER_PENDING_MSG % instance.pk,
+                [instance.customer.phone_number]
+            )
         elif instance.state == Order.OrderState.get_value('rejected'):
-            SMS.send(ORDER_REJECTED_MSG, [instance.customer.phone_number])
+            SMS.send(
+                ORDER_REJECTED_MSG % instance.pk,
+                [instance.customer.phone_number]
+            )
     except AfricasTalkingException:
         logging.exception('Unable to send sms notifications.')
