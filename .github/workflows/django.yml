@@ -5,10 +5,16 @@ on:
     branches: [ master, develop ]
     paths:
     - '**.py'
+    - '.coveragerc'
+    - 'requirements.txt'
   pull_request:
     branches: [ master ]
 
 env:
+  AFRICASTALKING_API_KEY: ${{ secrets.AFRICASTALKING_API_KEY }}
+  AFRICASTALKING_SENDER_ID: ${{ secrets.AFRICASTALKING_SENDER_ID }}
+  AFRICASTALKING_SHORT_CODE: ${{ secrets.AFRICASTALKING_SHORT_CODE }}
+  AFRICASTALKING_USERNAME: ${{ secrets.AFRICASTALKING_USERNAME }}
   DATABASE_HOST: ${{ secrets.DATABASE_HOST }}
   DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
   DATABASE_PORT: ${{ secrets.DATABASE_PORT }}
