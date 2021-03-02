@@ -36,7 +36,7 @@ urlpatterns = [
     ),
     path('api/', include('apps.core.urls')),
     path('api/', include('apps.shop.urls')),
-    path('auth-token/', obtain_auth_token)
+    path('api/auth-token/', obtain_auth_token)
 ]
 
 if settings.DEBUG:

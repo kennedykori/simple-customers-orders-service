@@ -332,14 +332,13 @@ class CustomerSerializer(AuditBaseSerializer):
 
     def __configure__(self) -> None:
         super().__configure__()
+        user: User = self.get_user_from_context()
         # A customer cannot be an admin and if a customer already exists, they
         # shouldn't be able to change their associated user object
         user_field = self.fields.get('user', None)
-        if self.instance and isinstance(self.instance, Customer) and \
-                user_field:
-            user_field.queryset = User.objects.filter(
-                pk=self.instance.user.pk
-            )
+        if not(user and user.is_staff) and user_field:
+            pk = user.pk if user else None
+            user_field.queryset = User.objects.filter(pk=pk)
         elif user_field:
             user_field.queryset = User.objects.filter(is_staff=False)
 
