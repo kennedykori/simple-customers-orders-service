@@ -3,6 +3,8 @@ from typing import Optional
 
 from django.contrib.auth import get_user_model
 
+from africastalking.Service import validate_phone
+
 from dynamic_rest.serializers import DynamicRelationField
 
 from rest_framework import serializers
@@ -340,6 +342,12 @@ class CustomerSerializer(AuditBaseSerializer):
             )
         elif user_field:
             user_field.queryset = User.objects.filter(is_staff=False)
+
+    # noinspection PyMethodMayBeStatic
+    def validate_phone_number(self, value: str) -> str:
+        if not validate_phone(value):
+            raise serializers.ValidationError('Invalid phone number')
+        return value
 
     class Meta:
         model = Customer
