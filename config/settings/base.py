@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'dynamic_rest',
     'oidc_provider',
     'rest_framework',
+    'rest_framework.authtoken',
     # Project Apps
     'apps.core.apps.CoreConfig',
     'apps.shop.apps.ShopConfig'
