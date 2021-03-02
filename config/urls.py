@@ -19,6 +19,11 @@ from django.contrib.auth.views import LoginView, LogoutView
 from django.contrib.staticfiles.urls import static
 from django.urls import include, path
 
+from rest_framework.authtoken.views import obtain_auth_token
+
+
+# URLs
+
 urlpatterns = [
     path('accounts/', include(
         'oidc_provider.urls',
@@ -31,6 +36,7 @@ urlpatterns = [
     ),
     path('api/', include('apps.core.urls')),
     path('api/', include('apps.shop.urls')),
+    path('auth-token/', obtain_auth_token)
 ]
 
 if settings.DEBUG:
