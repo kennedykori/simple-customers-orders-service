@@ -2,13 +2,18 @@ name: Beverage Shop CI
 
 on:
   push:
-    branches: [ master, develop ]
     paths:
     - '**.py'
+    - '.coveragerc'
+    - 'requirements.txt'
   pull_request:
-    branches: [ master ]
+    branches: [ master, staging ]
 
 env:
+  AFRICASTALKING_API_KEY: ${{ secrets.AFRICASTALKING_API_KEY }}
+  AFRICASTALKING_SENDER_ID: ${{ secrets.AFRICASTALKING_SENDER_ID }}
+  AFRICASTALKING_SHORT_CODE: ${{ secrets.AFRICASTALKING_SHORT_CODE }}
+  AFRICASTALKING_USERNAME: ${{ secrets.AFRICASTALKING_USERNAME }}
   DATABASE_HOST: ${{ secrets.DATABASE_HOST }}
   DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
   DATABASE_PORT: ${{ secrets.DATABASE_PORT }}
@@ -49,6 +54,14 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: psycopg2 prerequisites
       run: sudo apt-get install python-dev libpq-dev
+    - name: Cache pip
+      uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          ${{ runner.os }}-
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip

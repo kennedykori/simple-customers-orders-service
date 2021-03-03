@@ -44,9 +44,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # Third Party Apps
+    'drf_spectacular',
     'dynamic_rest',
     'oidc_provider',
     'rest_framework',
+    'rest_framework.authtoken',
     # Project Apps
     'apps.core.apps.CoreConfig',
     'apps.shop.apps.ShopConfig'
@@ -170,14 +172,43 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
         'dynamic_rest.renderers.DynamicBrowsableAPIRenderer'
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'HTML_SELECT_CUTOFF': 1000
 }
 
 
 ####################################################################################################
-# DRF
+# OIDC AUTH
 ####################################################################################################
 
 OIDC_AUTH = {
     'OIDC_ENDPOINT': BASE_URL + '/accounts/'
+}
+
+
+####################################################################################################
+# Africa's Talking API
+####################################################################################################
+
+AFRICASTALKING_API = {
+    'API_KEY': os.environ['AFRICASTALKING_API_KEY'],
+    'USERNAME': os.environ['AFRICASTALKING_USERNAME'],
+    'SMS_SENDER_ID': os.environ['AFRICASTALKING_SENDER_ID'],
+    'SMS_SHORT_CODE': os.environ['AFRICASTALKING_SHORT_CODE']
+}
+
+
+####################################################################################################
+# Drf Spectacular
+####################################################################################################
+
+SPECTACULAR_SETTINGS = {
+    'COMPONENT_SPLIT_REQUEST': True,
+    'TITLE': 'Beverage Shop REST Service',
+    'DESCRIPTION': (
+        'A simple REST API that allows customers of a beverage shop to make '
+        'beverage orders.'
+    ),
+    'SCHEMA_PATH_PREFIX': r'/api/',
+    'VERSION': '1.2.0',
 }

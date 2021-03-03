@@ -7,6 +7,7 @@ import factory
 from ...core.tests.factories import AdminFactory, AuditBaseFactory
 
 from ..models import Customer, Employee, Inventory, Order, OrderItem
+from ..signals import post_save
 
 
 # Model factories
@@ -75,6 +76,7 @@ class InventoryFactory(AuditBaseFactory):
         )
 
 
+@factory.django.mute_signals(post_save)
 class OrderFactory(AuditBaseFactory):
     """
     Factory for the **Order** model.
