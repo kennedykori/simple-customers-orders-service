@@ -38,7 +38,7 @@ class EditOrderItemListSerializer(AuditBaseSerializer):
     unit_price = serializers.DecimalField(
         decimal_places=2,
         max_digits=5,
-        min_value=ZERO_AMOUNT,
+        min_value=0,
         required=False
     )
 
@@ -239,7 +239,7 @@ class OrderItemSerializer(AuditBaseSerializer):
     total_price = serializers.DecimalField(
         decimal_places=2,
         max_digits=7,
-        min_value=ZERO_AMOUNT,
+        min_value=0,
         read_only=True
     )
 
@@ -281,7 +281,7 @@ class OrderSerializer(AuditBaseSerializer):
     total_price = serializers.DecimalField(
         decimal_places=2,
         max_digits=7,
-        min_value=ZERO_AMOUNT,
+        min_value=0,
         read_only=True
     )
 
