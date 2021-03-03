@@ -88,6 +88,22 @@ The main components of the service are:
   item ordered, quantity of the item ordered and, the price that the item was
   ordered at.
 
+## API
+
+An OpenAPI 3.0 schema of the service can be downloaded from the 
+[api/schema](https://beverage-shop.herokuapp.com/api/schema/) endpoint. HTML 
+documentation of the service in Swagger UI can be accessed at the 
+[api/schema/swagger-ui/](https://beverage-shop.herokuapp.com/api/schema/swagger-ui/)
+endpoint and, HTML documentation in Redoc can be accessed at the 
+[api/schema/redoc/](https://beverage-shop.herokuapp.com/api/schema/redoc/).
+
+The service both supports OpenID connect and Token authentication. To obtain
+a token, send a *POST* request to the 
+[api/auth-token/](https://beverage-shop.herokuapp.com/api/auth-token/) 
+endpoint with the username and password of a user in the request body.
+OpenID Connect standard endpoints are available at the 
+[accounts/](https://beverage-shop.herokuapp.com/accounts/) endpoint.
+
 ## Getting Started
 
 Before you can run the app locally, make sure you have 
