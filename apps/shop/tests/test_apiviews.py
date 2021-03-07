@@ -25,7 +25,8 @@ from .factories import (
     CustomerFactory,
     EmployeeFactory,
     InventoryFactory,
-    OrderFactory
+    OrderFactory,
+    OrderItemFactory
 )
 
 
@@ -1304,3 +1305,48 @@ class OrderViewSetTests(APITestCase):
             Order.OrderState.get_value('pending')
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+# noinspection PyUnresolvedReferences
+class OrderItemViewSetTests(APITestCase):
+    """
+    Tests for the **OrderItemViewSet** class.
+    """
+
+    def test_list_order_items(self) -> None:
+        """
+        Ensure that the **OrderItemsViewSet.list** action works as expected.
+        """
+        # Test data
+        admin: User = AdminFactory.create()
+        customer: Customer = CustomerFactory.create()
+        customer2: Customer = CustomerFactory.create()
+        order: Order = OrderFactory.create(customer=customer)
+        order1: Order = OrderFactory.create(customer=customer2)
+        OrderItemFactory.create_batch(5, order=order)
+        OrderItemFactory.create_batch(3, order=order1)
+
+        # Request data
+        url: str = reverse('order-items-list')
+
+        # Assert that when a customer is logged on, he/she cannot see other
+        # customer's order items
+        self.client.force_authenticate(user=customer.user)
+        response = self.client.get(url, format='json')
+
+        self.assertEqual(len(response.data.get('order_items')), 5)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.client.force_authenticate(user=customer2.user)
+        response = self.client.get(url, format='json')
+
+        self.assertEqual(len(response.data.get('order_items')), 3)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Assert that when an employee is logged on, he/she can see all the
+        # customers' order items
+        self.client.force_authenticate(user=admin)
+        response = self.client.get(url, format='json')
+
+        self.assertEqual(len(response.data.get('order_items')), 8)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
