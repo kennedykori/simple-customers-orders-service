@@ -36,6 +36,7 @@ User = get_user_model()
 
 # TestCases
 
+# noinspection PyUnresolvedReferences
 class CustomerViewSetTests(APITestCase):
     """
     Tests for the **CustomerViewSet** class.
@@ -192,6 +193,7 @@ class CustomerViewSetTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
+# noinspection PyUnresolvedReferences
 class EmployeeViewSetTests(APITestCase):
     """
     Tests for the **EmployeeViewSet** class.
@@ -260,6 +262,7 @@ class EmployeeViewSetTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
+# noinspection PyTypeChecker,PyUnresolvedReferences
 class InventoryViewSetTests(APITestCase):
     """
     Tests for the **InventoryViewSet** class.
@@ -336,6 +339,7 @@ class InventoryViewSetTests(APITestCase):
         self.assertEqual(inventory.beverage_name, data['beverage_name'])
 
 
+# noinspection PyUnresolvedReferences
 class OrderViewSetTests(APITestCase):
     """
     Tests for the **OrderViewSet** class.
@@ -351,6 +355,7 @@ class OrderViewSetTests(APITestCase):
         customer2: Customer = CustomerFactory.create()
         inventories: List[Inventory] = InventoryFactory.create_batch(
             3,
+            on_hand=1000,
             price=Decimal(10.00)
         )
         order = OrderFactory.create(customer=customer)
@@ -462,6 +467,261 @@ class OrderViewSetTests(APITestCase):
             status.HTTP_405_METHOD_NOT_ALLOWED
         )
 
+    def test_approve(self) -> None:
+        """
+        Ensure that the **OrderViewSet.approve** action works as expected.
+        """
+        # Test data
+        admin: User = AdminFactory.create()
+        customer: Customer = CustomerFactory.create()
+        customer2: Customer = CustomerFactory.create()
+        employee: Employee = EmployeeFactory.create()
+        inventories: List[Inventory] = InventoryFactory.create_batch(
+            2,
+            on_hand=1000
+        )
+        order: Order = OrderFactory.create(customer=customer, pending=True)
+        order1: Order = OrderFactory.create(customer=customer)
+        order2: Order = OrderFactory.create(customer=customer2)
+        order3: Order = OrderFactory.create(customer=customer2, pending=True)
+        order4: Order = OrderFactory.create(customer=customer2, pending=True)
+
+        # Add items to orders
+        order2.add_item(customer2.user, inventories[0], 10)
+        order3.add_item(customer2.user, inventories[0], 20)
+        order4.add_item(customer2.user, inventories[0], 20)
+
+        # Test Data
+        data = {
+            'comments': f'You were served by {employee.name}.',
+            'handler': employee.pk
+        }
+        url = reverse('orders-approve', args=[order.pk])
+
+        # Assert that customers cannot approve orders, only employees are
+        # allowed to approve orders
+        self.client.force_authenticate(user=customer.user)
+        response = self.client.patch(url, data, format='json')
+
+        order.refresh_from_db(fields=['state'])
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(order.state, Order.OrderState.get_value('pending'))
+
+        # Assert that a blank order cannot be approved
+        self.assertEquals(order.orderitem_set.count(), 0)
+
+        self.client.force_authenticate(user=admin)
+        response = self.client.patch(url, data, format='json')
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_424_FAILED_DEPENDENCY
+        )
+
+        # Assert that approving an order with items exceeding the available
+        # stock fails
+        order.add_item(customer.user, inventories[0])
+        order.add_item(customer.user, inventories[1], 1500)
+        response = self.client.patch(url, data, format='json')
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_422_UNPROCESSABLE_ENTITY
+        )
+        self.assertDictEqual(
+            response.data,
+            {
+                'adjustment': 1500,
+                'available_stock': 1000,
+                'detail': (
+                    'The current stock, "1000" of item, "%s" is not enough '
+                    'for a deduction by "1500" units.' % inventories[1]
+                ),
+                'item': inventories[1].pk
+            }
+        )
+
+        # Assert that a blank comment isn't allowed
+        response = self.client.patch(
+            url,
+            {'comments': '', 'handler': employee.pk},
+            format='json'
+        )
+
+        order.refresh_from_db(fields=['state'])
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(order.state, Order.OrderState.get_value('pending'))
+
+        # Assert that the action works as expected when performed by an
+        # employee and when given valid data
+        order.update_item(customer.user, inventories[1], 3)
+        self.client.force_authenticate(user=employee.user)
+        response = self.client.patch(url, data, format='json')
+
+        order.refresh_from_db(
+            fields=['comments', 'handler', 'review_date', 'state']
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(order.comments, data['comments'])
+        self.assertEqual(order.handler, employee)
+        self.assertIsNotNone(order.review_date)
+        self.assertEqual(order.state, Order.OrderState.get_value('approved'))
+
+        # Assert that orders that are not in the pending state cannot be
+        # approved
+        # CREATED ORDER
+        url = reverse('orders-approve', args=[order1.pk])
+        response = self.client.patch(url, data, format='json')
+
+        order1.refresh_from_db(fields=['state'])
+        self.assertEqual(order1.state, Order.OrderState.get_value('created'))
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+        # APPROVED ORDER
+        order4.approve(employee)
+        url = reverse('orders-approve', args=[order4.pk])
+        response = self.client.patch(url, data, format='json')
+
+        order4.refresh_from_db(fields=['state'])
+        self.assertEqual(order4.state, Order.OrderState.get_value('approved'))
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+        # REJECTED ORDER
+        order3.reject(employee, 'A good reason')
+        url = reverse('orders-approve', args=[order3.pk])
+        response = self.client.patch(url, data, format='json')
+
+        order3.refresh_from_db(fields=['state'])
+        self.assertEqual(order3.state, Order.OrderState.get_value('rejected'))
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+        # CANCELED ORDER
+        order2.cancel(customer2.user, 'A good reason')
+        url = reverse('orders-approve', args=[order2.pk])
+        response = self.client.patch(url, data, format='json')
+
+        order2.refresh_from_db(fields=['state'])
+        self.assertEqual(order2.state, Order.OrderState.get_value('canceled'))
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    def test_cancel(self) -> None:
+        """
+        Ensure that the **OrderViewSet.cancel** action works as expected.
+        """
+        # Test data
+        admin: User = AdminFactory.create()
+        customer: Customer = CustomerFactory.create()
+        customer2: Customer = CustomerFactory.create()
+        employee: Employee = EmployeeFactory.create()
+        inventories: List[Inventory] = InventoryFactory.create_batch(
+            2,
+            on_hand=1000
+        )
+        order: Order = OrderFactory.create(customer=customer)
+        order1: Order = OrderFactory.create(customer=customer, pending=True)
+        order2: Order = OrderFactory.create(customer=customer2)
+        order3: Order = OrderFactory.create(customer=customer2, pending=True)
+        order4: Order = OrderFactory.create(customer=customer2, pending=True)
+
+        # Add items to orders
+        order.add_item(customer.user, inventories[0])
+        order.add_item(customer.user, inventories[1], 3)
+        order2.add_item(customer2.user, inventories[0], 10)
+        order3.add_item(customer2.user, inventories[0], 20)
+        order4.add_item(customer2.user, inventories[0], 20)
+
+        # Test Data
+        data = {'comments': 'A good reason'}
+        url = reverse('orders-cancel', args=[order.pk])
+
+        # Assert that the action fails when a blank comment is given
+        self.client.force_authenticate(user=customer.user)
+        response = self.client.patch(url, {'comments': ''}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(order.state, Order.OrderState.get_value('created'))
+
+        # Assert that the action works as expected when given valid data
+        response = self.client.patch(url, data, format='json')
+
+        order.refresh_from_db(fields=['comments', 'state'])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(order.comments, data['comments'])
+        self.assertEqual(order.state, Order.OrderState.get_value('canceled'))
+
+        # Assert that a pending order can be canceled
+        url = reverse('orders-cancel', args=[order1.pk])
+        response = self.client.patch(url, format='json')
+
+        order1.refresh_from_db(fields=['comments', 'state'])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(order1.state, Order.OrderState.get_value('canceled'))
+        self.assertIsNone(order1.comments)
+
+        # Assert that a customer cannot change the state of another customer's
+        # order
+        url = reverse('orders-cancel', args=[order2.pk])
+        response = self.client.patch(url, data, format='json')
+
+        order2.refresh_from_db(fields=['state'])
+        self.assertEqual(order2.state, Order.OrderState.get_value('created'))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        # Assert that an admin can change the state of any customer's order
+        self.client.force_authenticate(user=admin)
+        response = self.client.patch(url, data, format='json')
+
+        order2.refresh_from_db(fields=['comments', 'state'])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(order2.comments, data['comments'])
+        self.assertEqual(order2.state, Order.OrderState.get_value('canceled'))
+
+        # Assert that orders that are not in the created or pending state
+        # cannot be canceled
+        # CANCELED ORDER
+        response = self.client.patch(url, data, format='json')
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+        # APPROVED ORDER
+        order3.approve(employee)
+        url = reverse('orders-cancel', args=[order3.pk])
+        response = self.client.patch(url, data, format='json')
+
+        order3.refresh_from_db(fields=['state'])
+        self.assertEqual(order3.state, Order.OrderState.get_value('approved'))
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+        # REJECTED ORDER
+        order4.reject(employee, 'A good reason')
+        url = reverse('orders-cancel', args=[order4.pk])
+        response = self.client.patch(url, data, format='json')
+
+        order4.refresh_from_db(fields=['state'])
+        self.assertEqual(order4.state, Order.OrderState.get_value('rejected'))
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
     def test_list_orders(self) -> None:
         """
         Ensure that the **OrderViewSet.list** action works as expected.
@@ -497,6 +757,482 @@ class OrderViewSetTests(APITestCase):
 
         self.assertEqual(len(response.data.get('orders')), 8)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_mark_for_review(self) -> None:
+        """
+        Ensure that the **OrderViewSet.mark_ready_for_review** action works as
+        expected.
+        """
+        # Test data
+        admin: User = AdminFactory.create()
+        customer: Customer = CustomerFactory.create()
+        customer2: Customer = CustomerFactory.create()
+        employee: Employee = EmployeeFactory.create()
+        inventories: List[Inventory] = InventoryFactory.create_batch(
+            2,
+            on_hand=1000
+        )
+        order: Order = OrderFactory.create(customer=customer)
+        order1: Order = OrderFactory.create(customer=customer)
+        order2: Order = OrderFactory.create(customer=customer2)
+        order3: Order = OrderFactory.create(customer=customer2, pending=True)
+        order4: Order = OrderFactory.create(customer=customer2, pending=True)
+
+        # Add items to orders
+        order.add_item(customer.user, inventories[0])
+        order.add_item(customer.user, inventories[1], 3)
+        order2.add_item(customer2.user, inventories[0], 10)
+        order3.add_item(customer2.user, inventories[0], 20)
+        order4.add_item(customer2.user, inventories[0], 20)
+
+        # Test Data
+        url = reverse('orders-mark-ready-for-review', args=[order.pk])
+
+        # Assert that the action works as expected
+        self.client.force_authenticate(user=customer.user)
+        response = self.client.patch(url, format='json')
+
+        order.refresh_from_db(fields=['state'])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(order.state, Order.OrderState.get_value('pending'))
+
+        # Assert that the an empty order cannot be marked as ready
+        url = reverse('orders-mark-ready-for-review', args=[order1.pk])
+        response = self.client.patch(url, format='json')
+
+        order1.refresh_from_db(fields=['state'])
+        self.assertEqual(order1.state, Order.OrderState.get_value('created'))
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_424_FAILED_DEPENDENCY
+        )
+
+        # Assert that a customer cannot change the state of another customer's
+        # order
+        url = reverse('orders-mark-ready-for-review', args=[order2.pk])
+        response = self.client.patch(url, format='json')
+
+        order2.refresh_from_db(fields=['state'])
+        self.assertEqual(order2.state, Order.OrderState.get_value('created'))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        # Assert that an admin can change the state of any customer's order
+        self.client.force_authenticate(user=admin)
+        response = self.client.patch(url, format='json')
+
+        order2.refresh_from_db(fields=['state'])
+        self.assertEqual(order2.state, Order.OrderState.get_value('pending'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Assert that orders that are not in the created state cannot be
+        # marked as pending
+        # PENDING ORDER
+        url = reverse('orders-mark-ready-for-review', args=[order2.pk])
+        response = self.client.patch(url, format='json')
+
+        order2.refresh_from_db(fields=['state'])
+        self.assertEqual(order2.state, Order.OrderState.get_value('pending'))
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+        # APPROVED ORDER
+        order2.approve(employee)
+        response = self.client.patch(url, format='json')
+
+        order2.refresh_from_db(fields=['state'])
+        self.assertEqual(order2.state, Order.OrderState.get_value('approved'))
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+        # REJECTED ORDER
+        order3.reject(employee, 'A good reason')
+        url = reverse('orders-mark-ready-for-review', args=[order3.pk])
+        response = self.client.patch(url, format='json')
+
+        order3.refresh_from_db(fields=['state'])
+        self.assertEqual(order3.state, Order.OrderState.get_value('rejected'))
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+        # CANCELED ORDER
+        order4.cancel(customer2.user, 'A good reason')
+        url = reverse('orders-mark-ready-for-review', args=[order4.pk])
+        response = self.client.patch(url, format='json')
+
+        order4.refresh_from_db(fields=['state'])
+        self.assertEqual(order4.state, Order.OrderState.get_value('canceled'))
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    def test_reject(self) -> None:
+        """
+        Ensure that the **OrderViewSet.reject** action works as expected.
+        """
+        # Test data
+        admin: User = AdminFactory.create()
+        customer: Customer = CustomerFactory.create()
+        customer2: Customer = CustomerFactory.create()
+        employee: Employee = EmployeeFactory.create()
+        inventories: List[Inventory] = InventoryFactory.create_batch(
+            2,
+            on_hand=1000
+        )
+        order: Order = OrderFactory.create(customer=customer, pending=True)
+        order1: Order = OrderFactory.create(customer=customer)
+        order2: Order = OrderFactory.create(customer=customer2)
+        order3: Order = OrderFactory.create(customer=customer2, pending=True)
+        order4: Order = OrderFactory.create(customer=customer2, pending=True)
+
+        # Add items to orders
+        order.add_item(customer.user, inventories[0])
+        order.add_item(customer.user, inventories[1], 3)
+        order2.add_item(customer2.user, inventories[0], 10)
+        order3.add_item(customer2.user, inventories[0], 20)
+        order4.add_item(customer2.user, inventories[0], 20)
+
+        # Test Data
+        data = {
+            'comments': 'A good reason',
+            'handler': employee.pk
+        }
+        url = reverse('orders-reject', args=[order.pk])
+
+        # Assert that customers cannot reject orders, only employees should be
+        # able to reject orders
+        self.client.force_authenticate(user=customer.user)
+        response = self.client.patch(url, data, format='json')
+
+        order.refresh_from_db(fields=['state'])
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(order.state, Order.OrderState.get_value('pending'))
+
+        # Assert that a reason for the rejection has to be provided
+        self.client.force_authenticate(user=admin)
+        response = self.client.patch(
+            url,
+            {'handler': employee.pk},
+            format='json'
+        )
+
+        order.refresh_from_db(fields=['state'])
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(order.state, Order.OrderState.get_value('pending'))
+
+        # Assert that the action works as expected when performed by an
+        # employee
+        self.client.force_authenticate(user=employee.user)
+        response = self.client.patch(url, data, format='json')
+
+        order.refresh_from_db(
+            fields=['comments', 'handler', 'review_date', 'state']
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(order.comments, data['comments'])
+        self.assertEqual(order.handler, employee)
+        self.assertIsNotNone(order.review_date)
+        self.assertEqual(order.state, Order.OrderState.get_value('rejected'))
+
+        # Assert that orders that are not in the pending state cannot be
+        # rejected
+        # CREATED ORDER
+        url = reverse('orders-reject', args=[order1.pk])
+        response = self.client.patch(url, data, format='json')
+
+        order1.refresh_from_db(fields=['state'])
+        self.assertEqual(order1.state, Order.OrderState.get_value('created'))
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+        # APPROVED ORDER
+        order4.approve(employee)
+        url = reverse('orders-reject', args=[order4.pk])
+        response = self.client.patch(url, data, format='json')
+
+        order4.refresh_from_db(fields=['state'])
+        self.assertEqual(order4.state, Order.OrderState.get_value('approved'))
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+        # REJECTED ORDER
+        order3.reject(employee, 'A good reason')
+        url = reverse('orders-reject', args=[order3.pk])
+        response = self.client.patch(url, data, format='json')
+
+        order3.refresh_from_db(fields=['state'])
+        self.assertEqual(order3.state, Order.OrderState.get_value('rejected'))
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+        # CANCELED ORDER
+        order2.cancel(customer2.user, 'A good reason')
+        url = reverse('orders-reject', args=[order2.pk])
+        response = self.client.patch(url, data, format='json')
+
+        order2.refresh_from_db(fields=['state'])
+        self.assertEqual(order2.state, Order.OrderState.get_value('canceled'))
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    def test_remove_item(self) -> None:
+        """
+        Ensure that the **OrderViewSet.remove_item** action works as expected.
+        """
+        # Test data
+        admin: User = AdminFactory.create()
+        customer: Customer = CustomerFactory.create()
+        customer2: Customer = CustomerFactory.create()
+        employee: Employee = EmployeeFactory.create()
+        inventories: List[Inventory] = InventoryFactory.create_batch(
+            4,
+            on_hand=1000,
+            price=Decimal(10.00)
+        )
+        order: Order = OrderFactory.create(customer=customer)
+        order1: Order = OrderFactory.create(customer=customer, pending=True)
+        order2: Order = OrderFactory.create(customer=customer2)
+        order3: Order = OrderFactory.create(customer=customer2, pending=True)
+
+        # Add items to orders
+        order.add_item(customer.user, inventories[0])
+        order.add_item(customer.user, inventories[1], 3)
+        order.add_item(customer.user, inventories[2], 20)
+        order1.add_item(customer.user, inventories[0])
+        order1.add_item(customer.user, inventories[1], 5)
+        order2.add_item(customer2.user, inventories[0], 10)
+        order3.add_item(customer2.user, inventories[0], 20)
+
+        # Request data
+        data = {'item': inventories[0].pk}
+        url: str = reverse('orders-remove-item', args=[order.pk])
+
+        # Assert that trying to remove an item with invalid details fails
+        self.client.force_authenticate(user=customer.user)
+        response = self.client.post(url, {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Assert that with the correct data, remove item works as expected
+        self.assertEqual(order.orderitem_set.count(), 3)
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(order.orderitem_set.count(), 2)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # Assert that any item of an order can be removed
+        data['item'] = inventories[1].pk
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(order.orderitem_set.count(), 1)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # Assert that a customer cannot alter the item list of another
+        # customer's order
+        self.client.force_authenticate(user=customer2.user)
+        data['item'] = inventories[2].pk
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        # Assert that staff members can alter the item list of any customer's
+        # order
+        self.client.force_authenticate(user=admin)
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(order.orderitem_set.count(), 0)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # Assert that removing an item that is not in an order's item list
+        # fails
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertDictEqual(
+            response.data,
+            {
+                'item': ["This item doesn't exists in this order."]
+            }
+        )
+
+        # Assert that removing items on a pending orders is allowed
+        url: str = reverse('orders-remove-item', args=[order1.pk])
+        data['item'] = inventories[1].pk
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(order1.orderitem_set.count(), 1)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # Assert that removing items to a non created nor pending orders fails
+        data['item'] = inventories[0].pk
+        order1.approve(employee)  # APPROVED ORDER
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(order1.orderitem_set.count(), 1)
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+        # Assert that removing items to a non created nor pending orders fails
+        order2.cancel(customer2.user)  # CANCELED ORDER
+        url: str = reverse('orders-remove-item', args=[order2.pk])
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(order2.orderitem_set.count(), 1)
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+        # Assert that removing items to a non created nor pending orders fails
+        order3.reject(employee, 'A good reason')  # REJECTED ORDER
+        url: str = reverse('orders-remove-item', args=[order3.pk])
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(order3.orderitem_set.count(), 1)
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    def test_update_item(self) -> None:
+        """
+        Ensure that the **OrderViewSet.update_item** action works as expected.
+        """
+        # Test data
+        admin: User = AdminFactory.create()
+        customer: Customer = CustomerFactory.create()
+        customer2: Customer = CustomerFactory.create()
+        employee: Employee = EmployeeFactory.create()
+        inventories: List[Inventory] = InventoryFactory.create_batch(
+            4,
+            on_hand=1000,
+            price=Decimal(10.00)
+        )
+        order: Order = OrderFactory.create(customer=customer)
+        order1: Order = OrderFactory.create(customer=customer, pending=True)
+        order2: Order = OrderFactory.create(customer=customer2)
+        order3: Order = OrderFactory.create(customer=customer2, pending=True)
+
+        # Add items to orders
+        order.add_item(customer.user, inventories[0])
+        order.add_item(customer.user, inventories[1], 3)
+        order.add_item(customer.user, inventories[2], 20)
+        order1.add_item(customer.user, inventories[0])
+        order2.add_item(customer2.user, inventories[0], 10)
+        order3.add_item(customer2.user, inventories[0], 20)
+
+        # Request data
+        data = {
+            'item': inventories[0].pk,
+            'quantity': 5,
+            'unit_price': '100.00'
+        }
+        url: str = reverse('orders-update-item', args=[order.pk])
+
+        # Assert that trying to update an item with invalid details fails
+        self.client.force_authenticate(user=customer.user)
+        response = self.client.post(url, {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Assert that with the correct data, update item works as expected
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.data['quantity'], 5)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Assert that non-staff users cannot modify item prices
+        self.assertNotEqual(response.data['unit_price'], '100.00')
+
+        # Assert that any item of an order can be updated
+        data['item'] = inventories[1].pk
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.data['quantity'], 5)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Assert that a customer cannot alter the item list of another
+        # customer's order
+        self.client.force_authenticate(user=customer2.user)
+        data['item'] = inventories[2].pk
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        # Assert that staff members can alter the item list of any customer's
+        # order
+        self.client.force_authenticate(user=admin)
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.data['quantity'], 5)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Assert that staff users can modify item prices
+        self.assertEqual(response.data['unit_price'], '100.00')
+
+        # Assert that updating an item that is not in an order's item list
+        # fails
+        data['item'] = inventories[3].pk
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertDictEqual(
+            response.data,
+            {
+                'item': ["This item doesn't exists in this order."]
+            }
+        )
+
+        # Assert that updating items on a pending orders is allowed
+        url: str = reverse('orders-update-item', args=[order1.pk])
+        data['item'] = inventories[0].pk
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.data['quantity'], 5)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Assert that updating items to a non created nor pending orders fails
+        order1.approve(employee)  # APPROVED ORDER
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+        # Assert that updating items to a non created nor pending orders fails
+        order2.cancel(customer2.user)  # CANCELED ORDER
+        url: str = reverse('orders-update-item', args=[order2.pk])
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+        # Assert that updating items to a non created nor pending orders fails
+        order3.reject(employee, 'A good reason')  # REJECTED ORDER
+        url: str = reverse('orders-update-item', args=[order3.pk])
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED
+        )
 
     def test_update_order(self) -> None:
         """
