@@ -506,7 +506,7 @@ class OrderViewSetTests(APITestCase):
 
         order.refresh_from_db(fields=['state'])
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(order.state, Order.OrderState.get_value('PENDING'))
+        self.assertEqual(order.state, Order.OrderState.PENDING.choice_value)
 
         # Assert that a blank order cannot be approved
         self.assertEquals(order.orderitem_set.count(), 0)
@@ -551,7 +551,7 @@ class OrderViewSetTests(APITestCase):
 
         order.refresh_from_db(fields=['state'])
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(order.state, Order.OrderState.get_value('PENDING'))
+        self.assertEqual(order.state, Order.OrderState.PENDING.choice_value)
 
         # Assert that the action works as expected when performed by an
         # employee and when given valid data
@@ -566,7 +566,7 @@ class OrderViewSetTests(APITestCase):
         self.assertEqual(order.comments, data['comments'])
         self.assertEqual(order.handler, employee)
         self.assertIsNotNone(order.review_date)
-        self.assertEqual(order.state, Order.OrderState.get_value('APPROVED'))
+        self.assertEqual(order.state, Order.OrderState.APPROVED.choice_value)
 
         # Assert that orders that are not in the PENDING state cannot be
         # approved
@@ -575,7 +575,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, data, format='json')
 
         order1.refresh_from_db(fields=['state'])
-        self.assertEqual(order1.state, Order.OrderState.get_value('CREATED'))
+        self.assertEqual(order1.state, Order.OrderState.CREATED.choice_value)
         self.assertEqual(
             response.status_code,
             status.HTTP_405_METHOD_NOT_ALLOWED
@@ -587,7 +587,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, data, format='json')
 
         order4.refresh_from_db(fields=['state'])
-        self.assertEqual(order4.state, Order.OrderState.get_value('APPROVED'))
+        self.assertEqual(order4.state, Order.OrderState.APPROVED.choice_value)
         self.assertEqual(
             response.status_code,
             status.HTTP_405_METHOD_NOT_ALLOWED
@@ -599,7 +599,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, data, format='json')
 
         order3.refresh_from_db(fields=['state'])
-        self.assertEqual(order3.state, Order.OrderState.get_value('REJECTED'))
+        self.assertEqual(order3.state, Order.OrderState.REJECTED.choice_value)
         self.assertEqual(
             response.status_code,
             status.HTTP_405_METHOD_NOT_ALLOWED
@@ -611,7 +611,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, data, format='json')
 
         order2.refresh_from_db(fields=['state'])
-        self.assertEqual(order2.state, Order.OrderState.get_value('CANCELED'))
+        self.assertEqual(order2.state, Order.OrderState.CANCELED.choice_value)
         self.assertEqual(
             response.status_code,
             status.HTTP_405_METHOD_NOT_ALLOWED
@@ -652,7 +652,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, {'comments': ''}, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(order.state, Order.OrderState.get_value('CREATED'))
+        self.assertEqual(order.state, Order.OrderState.CREATED.choice_value)
 
         # Assert that the action works as expected when given valid data
         response = self.client.patch(url, data, format='json')
@@ -660,7 +660,7 @@ class OrderViewSetTests(APITestCase):
         order.refresh_from_db(fields=['comments', 'state'])
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(order.comments, data['comments'])
-        self.assertEqual(order.state, Order.OrderState.get_value('CANCELED'))
+        self.assertEqual(order.state, Order.OrderState.CANCELED.choice_value)
 
         # Assert that a pending order can be canceled
         url = reverse('orders-cancel', args=[order1.pk])
@@ -668,7 +668,7 @@ class OrderViewSetTests(APITestCase):
 
         order1.refresh_from_db(fields=['comments', 'state'])
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(order1.state, Order.OrderState.get_value('CANCELED'))
+        self.assertEqual(order1.state, Order.OrderState.CANCELED.choice_value)
         self.assertIsNone(order1.comments)
 
         # Assert that a customer cannot change the state of another customer's
@@ -677,7 +677,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, data, format='json')
 
         order2.refresh_from_db(fields=['state'])
-        self.assertEqual(order2.state, Order.OrderState.get_value('CREATED'))
+        self.assertEqual(order2.state, Order.OrderState.CREATED.choice_value)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
         # Assert that an admin can change the state of any customer's order
@@ -687,7 +687,7 @@ class OrderViewSetTests(APITestCase):
         order2.refresh_from_db(fields=['comments', 'state'])
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(order2.comments, data['comments'])
-        self.assertEqual(order2.state, Order.OrderState.get_value('CANCELED'))
+        self.assertEqual(order2.state, Order.OrderState.CANCELED.choice_value)
 
         # Assert that orders that are not in the created or pending state
         # cannot be CANCELED
@@ -705,7 +705,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, data, format='json')
 
         order3.refresh_from_db(fields=['state'])
-        self.assertEqual(order3.state, Order.OrderState.get_value('APPROVED'))
+        self.assertEqual(order3.state, Order.OrderState.APPROVED.choice_value)
         self.assertEqual(
             response.status_code,
             status.HTTP_405_METHOD_NOT_ALLOWED
@@ -717,7 +717,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, data, format='json')
 
         order4.refresh_from_db(fields=['state'])
-        self.assertEqual(order4.state, Order.OrderState.get_value('REJECTED'))
+        self.assertEqual(order4.state, Order.OrderState.REJECTED.choice_value)
         self.assertEqual(
             response.status_code,
             status.HTTP_405_METHOD_NOT_ALLOWED
@@ -795,14 +795,14 @@ class OrderViewSetTests(APITestCase):
 
         order.refresh_from_db(fields=['state'])
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(order.state, Order.OrderState.get_value('PENDING'))
+        self.assertEqual(order.state, Order.OrderState.PENDING.choice_value)
 
         # Assert that the an empty order cannot be marked as ready
         url = reverse('orders-mark-ready-for-review', args=[order1.pk])
         response = self.client.patch(url, format='json')
 
         order1.refresh_from_db(fields=['state'])
-        self.assertEqual(order1.state, Order.OrderState.get_value('CREATED'))
+        self.assertEqual(order1.state, Order.OrderState.CREATED.choice_value)
         self.assertEqual(
             response.status_code,
             status.HTTP_424_FAILED_DEPENDENCY
@@ -814,7 +814,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, format='json')
 
         order2.refresh_from_db(fields=['state'])
-        self.assertEqual(order2.state, Order.OrderState.get_value('CREATED'))
+        self.assertEqual(order2.state, Order.OrderState.CREATED.choice_value)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
         # Assert that an admin can change the state of any customer's order
@@ -822,7 +822,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, format='json')
 
         order2.refresh_from_db(fields=['state'])
-        self.assertEqual(order2.state, Order.OrderState.get_value('PENDING'))
+        self.assertEqual(order2.state, Order.OrderState.PENDING.choice_value)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Assert that orders that are not in the created state cannot be
@@ -832,7 +832,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, format='json')
 
         order2.refresh_from_db(fields=['state'])
-        self.assertEqual(order2.state, Order.OrderState.get_value('PENDING'))
+        self.assertEqual(order2.state, Order.OrderState.PENDING.choice_value)
         self.assertEqual(
             response.status_code,
             status.HTTP_405_METHOD_NOT_ALLOWED
@@ -843,7 +843,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, format='json')
 
         order2.refresh_from_db(fields=['state'])
-        self.assertEqual(order2.state, Order.OrderState.get_value('APPROVED'))
+        self.assertEqual(order2.state, Order.OrderState.APPROVED.choice_value)
         self.assertEqual(
             response.status_code,
             status.HTTP_405_METHOD_NOT_ALLOWED
@@ -855,7 +855,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, format='json')
 
         order3.refresh_from_db(fields=['state'])
-        self.assertEqual(order3.state, Order.OrderState.get_value('REJECTED'))
+        self.assertEqual(order3.state, Order.OrderState.REJECTED.choice_value)
         self.assertEqual(
             response.status_code,
             status.HTTP_405_METHOD_NOT_ALLOWED
@@ -867,7 +867,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, format='json')
 
         order4.refresh_from_db(fields=['state'])
-        self.assertEqual(order4.state, Order.OrderState.get_value('CANCELED'))
+        self.assertEqual(order4.state, Order.OrderState.CANCELED.choice_value)
         self.assertEqual(
             response.status_code,
             status.HTTP_405_METHOD_NOT_ALLOWED
@@ -913,7 +913,7 @@ class OrderViewSetTests(APITestCase):
 
         order.refresh_from_db(fields=['state'])
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(order.state, Order.OrderState.get_value('PENDING'))
+        self.assertEqual(order.state, Order.OrderState.PENDING.choice_value)
 
         # Assert that a reason for the rejection has to be provided
         self.client.force_authenticate(user=admin)
@@ -925,7 +925,7 @@ class OrderViewSetTests(APITestCase):
 
         order.refresh_from_db(fields=['state'])
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(order.state, Order.OrderState.get_value('PENDING'))
+        self.assertEqual(order.state, Order.OrderState.PENDING.choice_value)
 
         # Assert that the action works as expected when performed by an
         # employee
@@ -939,7 +939,7 @@ class OrderViewSetTests(APITestCase):
         self.assertEqual(order.comments, data['comments'])
         self.assertEqual(order.handler, employee)
         self.assertIsNotNone(order.review_date)
-        self.assertEqual(order.state, Order.OrderState.get_value('REJECTED'))
+        self.assertEqual(order.state, Order.OrderState.REJECTED.choice_value)
 
         # Assert that orders that are not in the pending state cannot be
         # rejected
@@ -948,7 +948,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, data, format='json')
 
         order1.refresh_from_db(fields=['state'])
-        self.assertEqual(order1.state, Order.OrderState.get_value('CREATED'))
+        self.assertEqual(order1.state, Order.OrderState.CREATED.choice_value)
         self.assertEqual(
             response.status_code,
             status.HTTP_405_METHOD_NOT_ALLOWED
@@ -960,7 +960,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, data, format='json')
 
         order4.refresh_from_db(fields=['state'])
-        self.assertEqual(order4.state, Order.OrderState.get_value('APPROVED'))
+        self.assertEqual(order4.state, Order.OrderState.APPROVED.choice_value)
         self.assertEqual(
             response.status_code,
             status.HTTP_405_METHOD_NOT_ALLOWED
@@ -972,7 +972,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, data, format='json')
 
         order3.refresh_from_db(fields=['state'])
-        self.assertEqual(order3.state, Order.OrderState.get_value('REJECTED'))
+        self.assertEqual(order3.state, Order.OrderState.REJECTED.choice_value)
         self.assertEqual(
             response.status_code,
             status.HTTP_405_METHOD_NOT_ALLOWED
@@ -984,7 +984,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.patch(url, data, format='json')
 
         order2.refresh_from_db(fields=['state'])
-        self.assertEqual(order2.state, Order.OrderState.get_value('CANCELED'))
+        self.assertEqual(order2.state, Order.OrderState.CANCELED.choice_value)
         self.assertEqual(
             response.status_code,
             status.HTTP_405_METHOD_NOT_ALLOWED
@@ -1246,9 +1246,9 @@ class OrderViewSetTests(APITestCase):
 
         # Request data
         post_data: Dict[str, Any] = OrderSerializer(order).data
-        post_data['state'] = Order.OrderState.get_value('PENDING')
+        post_data['state'] = Order.OrderState.PENDING.choice_value
         patch_data = {
-            'state': Order.OrderState.get_value('PENDING')
+            'state': Order.OrderState.PENDING.choice_value
         }
         url: str = reverse('orders-detail', args=[order.pk])
 
@@ -1261,7 +1261,7 @@ class OrderViewSetTests(APITestCase):
         )  # POST request
         self.assertNotEqual(
             order.state,
-            Order.OrderState.get_value('PENDING')
+            Order.OrderState.PENDING.choice_value
         )
         self.assertEqual(
             response.status_code,
@@ -1275,7 +1275,7 @@ class OrderViewSetTests(APITestCase):
         )  # PATCH request
         self.assertNotEqual(
             order.state,
-            Order.OrderState.get_value('PENDING')
+            Order.OrderState.PENDING.choice_value
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -1288,7 +1288,7 @@ class OrderViewSetTests(APITestCase):
         )  # POST request
         self.assertNotEqual(
             order.state,
-            Order.OrderState.get_value('PENDING')
+            Order.OrderState.PENDING.choice_value
         )
         self.assertEqual(
             response.status_code,
@@ -1302,7 +1302,7 @@ class OrderViewSetTests(APITestCase):
         )  # PATCH request
         self.assertNotEqual(
             order.state,
-            Order.OrderState.get_value('PENDING')
+            Order.OrderState.PENDING.choice_value
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 

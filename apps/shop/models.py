@@ -185,7 +185,7 @@ class Employee(AuditBase):
     gender = models.CharField(
         max_length=1,
         choices=Gender.to_list(),
-        default='M'
+        default=Gender.MALE.choice_value
     )
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -223,7 +223,7 @@ class Inventory(AuditBase):
     beverage_type = models.CharField(
         max_length=1,
         choices=BeverageTypes.to_list(),
-        default='C'
+        default=BeverageTypes.COFFEE.choice_value
     )
     caffeinated = models.BooleanField(default=False)
     flavored = models.BooleanField(default=False)
@@ -285,11 +285,11 @@ class Inventory(AuditBase):
         :return: the current availability state of this item.
         """
         if self.is_out_of_stock:
-            return Inventory.InventoryItemState.get_choice_name('O')
+            return Inventory.InventoryItemState.OUT_OF_STOCK.choice_display
         elif self.is_few_remaining:
-            return Inventory.InventoryItemState.get_choice_name('F')
+            return Inventory.InventoryItemState.FEW_REMAINING.choice_display
         # For the default case, return AVAILABLE
-        return Inventory.InventoryItemState.get_choice_name('A')
+        return Inventory.InventoryItemState.AVAILABLE.choice_display
 
     def deduct(self, user: User, quantity: int) -> int:
         """
@@ -390,7 +390,7 @@ class Order(AuditBase):
     state = models.CharField(
         max_length=1,
         choices=OrderState.to_list(),
-        default='N'
+        default=OrderState.CREATED.choice_value
     )
     handler = models.ForeignKey(
         Employee,
@@ -421,7 +421,7 @@ class Order(AuditBase):
 
         :return: True if this order is marked as APPROVED, False otherwise.
         """
-        return self.state == Order.OrderState.get_value('APPROVED')
+        return self.state == Order.OrderState.APPROVED.choice_value
 
     @property
     def is_canceled(self) -> bool:
@@ -431,7 +431,7 @@ class Order(AuditBase):
 
         :return: True if this order is marked as CANCELED, False otherwise.
         """
-        return self.state == Order.OrderState.get_value('CANCELED')
+        return self.state == Order.OrderState.CANCELED.choice_value
 
     @property
     def is_created(self) -> bool:
@@ -441,7 +441,7 @@ class Order(AuditBase):
 
         :return: True if this order is in the CREATED state, False otherwise.
         """
-        return self.state == Order.OrderState.get_value('CREATED')
+        return self.state == Order.OrderState.CREATED.choice_value
 
     @property
     def is_pending(self) -> bool:
@@ -451,7 +451,7 @@ class Order(AuditBase):
 
         :return: True if this order is marked as PENDING, False otherwise.
         """
-        return self.state == Order.OrderState.get_value('PENDING')
+        return self.state == Order.OrderState.PENDING.choice_value
 
     @property
     def is_rejected(self) -> bool:
@@ -461,7 +461,7 @@ class Order(AuditBase):
 
         :return: True if this order is marked as REJECTED, False otherwise.
         """
-        return self.state == Order.OrderState.get_value('REJECTED')
+        return self.state == Order.OrderState.REJECTED.choice_value
 
     @property
     def total_price(self) -> Decimal:
@@ -688,9 +688,7 @@ class Order(AuditBase):
                     'current_state': Order.OrderState.get_choice_name(
                         self.state
                     ),
-                    'new_state': Order.OrderState.get_choice_name(
-                        Order.OrderState.get_value('APPROVED')
-                    )
+                    'new_state': Order.OrderState.APPROVED.choice_display
                 }
             )
 
@@ -716,7 +714,7 @@ class Order(AuditBase):
                 comments=comments,
                 handler=employee,
                 review_date=now(),
-                state=Order.OrderState.get_value('APPROVED')
+                state=Order.OrderState.APPROVED.choice_value
             )
 
     def cancel(self, user: User, comments: str = None) -> None:
@@ -744,9 +742,7 @@ class Order(AuditBase):
                     'current_state': Order.OrderState.get_choice_name(
                         self.state
                     ),
-                    'new_state': Order.OrderState.get_choice_name(
-                        Order.OrderState.get_value('CANCELED')
-                    )
+                    'new_state': Order.OrderState.CANCELED.choice_display
                 }
             )
 
@@ -754,7 +750,7 @@ class Order(AuditBase):
         self.update(
             user,
             comments=comments,
-            state=Order.OrderState.get_value('CANCELED')
+            state=Order.OrderState.CANCELED.choice_value
         )
 
     def mark_ready_for_review(self, user: User) -> None:
@@ -783,9 +779,7 @@ class Order(AuditBase):
                     'current_state': Order.OrderState.get_choice_name(
                         self.state
                     ),
-                    'new_state': Order.OrderState.get_choice_name(
-                        Order.OrderState.get_value('PENDING')
-                    )
+                    'new_state': Order.OrderState.PENDING.choice_display
                 }
             )
 
@@ -798,7 +792,7 @@ class Order(AuditBase):
             )
 
         # Update the order to "PENDING" state
-        self.update(user, state=Order.OrderState.get_value('PENDING'))
+        self.update(user, state=Order.OrderState.PENDING.choice_value)
 
     def reject(self, employee: Employee, comments: str) -> None:
         """
@@ -825,9 +819,7 @@ class Order(AuditBase):
                     'current_state': Order.OrderState.get_choice_name(
                         self.state
                     ),
-                    'new_state': Order.OrderState.get_choice_name(
-                        Order.OrderState.get_value('REJECTED')
-                    )
+                    'new_state': Order.OrderState.REJECTED.choice_display
                 }
             )
 
@@ -837,7 +829,7 @@ class Order(AuditBase):
             comments=comments,
             handler=employee,
             review_date=now(),
-            state=Order.OrderState.get_value('REJECTED')
+            state=Order.OrderState.REJECTED.choice_value
         )
 
     def __str__(self):

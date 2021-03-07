@@ -171,7 +171,7 @@ class EmployeeTests(AuditBaseTestCase):
         # Assert that the created employee has the correct details
         self.assertEqual(employee.created_by, staff)
         self.assertEqual(employee.name, 'First_name Second_name')
-        self.assertEqual(employee.gender, Employee.Gender.get_value('MALE'))
+        self.assertEqual(employee.gender, Employee.Gender.MALE.choice_value)
         self.assertIsNone(employee.updated_by)
         self.assertEqual(employee.user, staff)
 
@@ -230,13 +230,13 @@ class EmployeeTests(AuditBaseTestCase):
         employee.update(
             user2,
             name='First_name Sur_name',
-            gender=Employee.Gender.get_value('FEMALE')
+            gender=Employee.Gender.FEMALE.choice_value
         )
 
         # Assert that the employee instance was updated correctly
         self.assertEqual(employee.created_by, user)
         self.assertEqual(employee.name, 'First_name Sur_name')
-        self.assertEqual(employee.gender, Employee.Gender.get_value('FEMALE'))
+        self.assertEqual(employee.gender, Employee.Gender.FEMALE.choice_value)
         self.assertEqual(employee.updated_by, user2)
         self.assertEqual(employee.user, user)
 
@@ -272,7 +272,7 @@ class InventoryTests(AuditBaseTestCase):
         self.assertEqual(beverage.beverage_name, 'Mocha Java')
         self.assertEqual(
             beverage.beverage_type,
-            Inventory.BeverageTypes.get_value('COFFEE')
+            Inventory.BeverageTypes.COFFEE.choice_value
         )
         self.assertFalse(beverage.caffeinated)
         self.assertFalse(beverage.flavored)
@@ -283,9 +283,7 @@ class InventoryTests(AuditBaseTestCase):
         self.assertEqual(beverage.price, Decimal('6.40'))
         self.assertEqual(
             beverage.state,
-            Inventory.InventoryItemState.get_choice_name(
-                Inventory.InventoryItemState.get_value('AVAILABLE')
-            )
+            Inventory.InventoryItemState.AVAILABLE.choice_display
         )
         self.assertIsNone(beverage.updated_by)
         self.assertEqual(beverage.warn_limit, 100)
@@ -386,7 +384,7 @@ class InventoryTests(AuditBaseTestCase):
         beverage.update(
             user2,
             beverage_name='Vanilla Tea',
-            beverage_type=Inventory.BeverageTypes.get_value('TEA'),
+            beverage_type=Inventory.BeverageTypes.TEA.choice_value,
             caffeinated=True,
             flavored=True,
             on_hand=0,
@@ -398,7 +396,7 @@ class InventoryTests(AuditBaseTestCase):
         self.assertEqual(beverage.beverage_name, 'Vanilla Tea')
         self.assertEqual(
             beverage.beverage_type,
-            Inventory.BeverageTypes.get_value('TEA')
+            Inventory.BeverageTypes.TEA.choice_value
         )
         self.assertTrue(beverage.caffeinated)
         self.assertTrue(beverage.flavored)
@@ -409,9 +407,7 @@ class InventoryTests(AuditBaseTestCase):
         self.assertEqual(beverage.price, Decimal('15.50'))
         self.assertEqual(
             beverage.state,
-            Inventory.InventoryItemState.get_choice_name(
-                Inventory.InventoryItemState.get_value('OUT_OF_STOCK')
-            )
+            Inventory.InventoryItemState.OUT_OF_STOCK.choice_display
         )
         self.assertEqual(beverage.updated_by, user2)
         self.assertEqual(beverage.warn_limit, 10)
@@ -538,7 +534,7 @@ class OrderTests(AuditBaseTestCase):
         self.assertFalse(order.is_approved)
         self.assertTrue(order.is_created)
         self.assertIsNone(order.review_date)
-        self.assertEqual(order.state, Order.OrderState.get_value('CREATED'))
+        self.assertEqual(order.state, Order.OrderState.CREATED.choice_value)
         self.assertEqual(order.total_price, Decimal('0.00'))
 
         # Add an item to the order and mark the order as pending
@@ -564,7 +560,7 @@ class OrderTests(AuditBaseTestCase):
         self.assertTrue(order.is_approved)
         self.assertFalse(order.is_created)
         self.assertIsNotNone(order.review_date)
-        self.assertEqual(order.state, Order.OrderState.get_value('APPROVED'))
+        self.assertEqual(order.state, Order.OrderState.APPROVED.choice_value)
         self.assertEqual(
             order.total_price,
             (self.item1.price * 50) + (self.item2.price * 200)
@@ -635,7 +631,7 @@ class OrderTests(AuditBaseTestCase):
         self.assertIsNone(order.comments)
         self.assertFalse(order.is_canceled)
         self.assertTrue(order.is_created)
-        self.assertEqual(order.state, Order.OrderState.get_value('CREATED'))
+        self.assertEqual(order.state, Order.OrderState.CREATED.choice_value)
 
         # Cancel the order
         order.cancel(order.customer.user, 'Changed my mind')
@@ -646,7 +642,7 @@ class OrderTests(AuditBaseTestCase):
         self.assertEqual(order.comments, 'Changed my mind')
         self.assertTrue(order.is_canceled)
         self.assertFalse(order.is_created)
-        self.assertEqual(order.state, Order.OrderState.get_value('CANCELED'))
+        self.assertEqual(order.state, Order.OrderState.CANCELED.choice_value)
         self.assertEqual(order.updated_by, order.customer.user)
 
         # Cancellation of a pending order should not fail
@@ -697,7 +693,7 @@ class OrderTests(AuditBaseTestCase):
         self.assertFalse(order.is_pending)
         self.assertFalse(order.is_rejected)
         self.assertIsNone(order.review_date)
-        self.assertEqual(order.state, Order.OrderState.get_value('CREATED'))
+        self.assertEqual(order.state, Order.OrderState.CREATED.choice_value)
         self.assertEqual(order.total_price, Decimal('0.00'))
 
     def test_get_item(self) -> None:
@@ -724,7 +720,7 @@ class OrderTests(AuditBaseTestCase):
         self.assertTrue(order.can_update_order_items)
         self.assertTrue(order.is_created)
         self.assertFalse(order.is_pending)
-        self.assertEqual(order.state, Order.OrderState.get_value('CREATED'))
+        self.assertEqual(order.state, Order.OrderState.CREATED.choice_value)
         self.assertEqual(order.total_price, Decimal('0.00'))
 
         # Assert that attempting to mark an order with an empty item list as
@@ -744,7 +740,7 @@ class OrderTests(AuditBaseTestCase):
         self.assertTrue(order.can_update_order_items)
         self.assertFalse(order.is_created)
         self.assertTrue(order.is_pending)
-        self.assertEqual(order.state, Order.OrderState.get_value('PENDING'))
+        self.assertEqual(order.state, Order.OrderState.PENDING.choice_value)
         self.assertEqual(order.total_price, self.item1.price * 50)
         self.assertEqual(order.updated_by, order.customer.user)
 
@@ -790,7 +786,7 @@ class OrderTests(AuditBaseTestCase):
         self.assertTrue(order.is_pending)
         self.assertFalse(order.is_rejected)
         self.assertIsNone(order.review_date)
-        self.assertEqual(order.state, Order.OrderState.get_value('PENDING'))
+        self.assertEqual(order.state, Order.OrderState.PENDING.choice_value)
 
         # Reject the order
         order.reject(employee, comments)
@@ -802,7 +798,7 @@ class OrderTests(AuditBaseTestCase):
         self.assertFalse(order.is_pending)
         self.assertTrue(order.is_rejected)
         self.assertIsNotNone(order.review_date)
-        self.assertEqual(order.state, Order.OrderState.get_value('REJECTED'))
+        self.assertEqual(order.state, Order.OrderState.REJECTED.choice_value)
         self.assertEqual(order.updated_by, employee.user)
 
         # Assert that attempting to reject an order that is not in the
