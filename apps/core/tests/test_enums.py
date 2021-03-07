@@ -9,9 +9,9 @@ class Status(Choices):
     """
     Dummy sample class.
     """
-    pending = ('P', 'PENDING')
-    approved = ('A', 'APPROVED')
-    rejected = ('R', 'REJECTED')
+    PENDING = ('P', 'PENDING')
+    APPROVED = ('A', 'APPROVED')
+    REJECTED = ('R', 'REJECTED')
 
 
 # TestCases
@@ -20,6 +20,16 @@ class ChoicesTests(TestCase):
     """
     Tests for the `Choices` enum.
     """
+
+    def test_choice_display(self):
+        self.assertEqual(Status.APPROVED.choice_display, 'APPROVED')
+        self.assertEqual(Status.PENDING.choice_display, 'PENDING')
+        self.assertEqual(Status.REJECTED.choice_display, 'REJECTED')
+
+    def test_choice_value(self):
+        self.assertEqual(Status.APPROVED.choice_value, 'A')
+        self.assertEqual(Status.PENDING.choice_value, 'P')
+        self.assertEqual(Status.REJECTED.choice_value, 'R')
 
     def test_get_choice_name(self):
         # Assert that we get the correct value
@@ -34,12 +44,12 @@ class ChoicesTests(TestCase):
 
     def test_get_value(self):
         # Assert that we get the correct value
-        self.assertEqual(Status.get_value('pending'), 'P')
-        self.assertEqual(Status.get_value('rejected'), 'R')
+        self.assertEqual(Status.get_value('PENDING'), 'P')
+        self.assertEqual(Status.get_value('REJECTED'), 'R')
 
         # Assert that a KeyError is raised when a value that isn't a member of
         # the enum is given
-        self.assertRaises(KeyError, Status.get_value, 'created')
+        self.assertRaises(KeyError, Status.get_value, 'CREATED')
         self.assertRaises(KeyError, Status.get_value, '')
         self.assertRaises(KeyError, Status.get_value, None)
         self.assertRaises(KeyError, Status.get_value, 7)

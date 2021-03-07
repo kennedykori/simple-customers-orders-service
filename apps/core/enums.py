@@ -8,6 +8,26 @@ class Choices(Enum):
     enumeration.
     """
 
+    @property
+    def choice_display(self) -> str:
+        """
+        Returns the choice's display value. This is the value that is
+        displayed on forms to users.
+
+        :return: the choice's display value.
+        """
+        return self.value[1]
+
+    @property
+    def choice_value(self) -> str:
+        """
+        Returns the choice's actual value. This is the value that is persisted
+        to the database.
+
+        :return: the choice's actual value.
+        """
+        return self.value[0]
+
     @classmethod
     def get_choice_name(cls, value: str) -> str:
         """
