@@ -514,7 +514,7 @@ class Order(AuditBase):
         if not self.can_update_order_items:
             raise OperationForbiddenError(
                 self.ITEM_LIST_MODIFICATION_FORBIDDEN_ERROR_MSG %
-                Order.OrderState.get_choice_name(self.state)
+                Order.OrderState.get_choice_display(self.state)
             )
 
         # If the given item is out of stock raise an OutOfStockError
@@ -555,7 +555,7 @@ class Order(AuditBase):
         if not self.can_update_order_items:
             raise OperationForbiddenError(
                 self.ITEM_LIST_MODIFICATION_FORBIDDEN_ERROR_MSG %
-                Order.OrderState.get_choice_name(self.state)
+                Order.OrderState.get_choice_display(self.state)
             )
 
         # If the given item is not part of this order's item list, raise an
@@ -604,7 +604,7 @@ class Order(AuditBase):
         if not self.can_update_order_items:
             raise OperationForbiddenError(
                 self.ITEM_LIST_MODIFICATION_FORBIDDEN_ERROR_MSG %
-                Order.OrderState.get_choice_name(self.state)
+                Order.OrderState.get_choice_display(self.state)
             )
 
         # If the given item is not part of this order's item list, raise an
@@ -685,7 +685,7 @@ class Order(AuditBase):
         if not self.is_pending:
             raise OperationForbiddenError(
                 self.STATE_CHANGE_FORBIDDEN_ERROR_MSG % {
-                    'current_state': Order.OrderState.get_choice_name(
+                    'current_state': Order.OrderState.get_choice_display(
                         self.state
                     ),
                     'new_state': Order.OrderState.APPROVED.choice_display
@@ -739,7 +739,7 @@ class Order(AuditBase):
         if not (self.is_created or self.is_pending):
             raise OperationForbiddenError(
                 self.STATE_CHANGE_FORBIDDEN_ERROR_MSG % {
-                    'current_state': Order.OrderState.get_choice_name(
+                    'current_state': Order.OrderState.get_choice_display(
                         self.state
                     ),
                     'new_state': Order.OrderState.CANCELED.choice_display
@@ -776,7 +776,7 @@ class Order(AuditBase):
         if not self.is_created:
             raise OperationForbiddenError(
                 self.STATE_CHANGE_FORBIDDEN_ERROR_MSG % {
-                    'current_state': Order.OrderState.get_choice_name(
+                    'current_state': Order.OrderState.get_choice_display(
                         self.state
                     ),
                     'new_state': Order.OrderState.PENDING.choice_display
@@ -816,7 +816,7 @@ class Order(AuditBase):
         if not self.is_pending:
             raise OperationForbiddenError(
                 self.STATE_CHANGE_FORBIDDEN_ERROR_MSG % {
-                    'current_state': Order.OrderState.get_choice_name(
+                    'current_state': Order.OrderState.get_choice_display(
                         self.state
                     ),
                     'new_state': Order.OrderState.REJECTED.choice_display

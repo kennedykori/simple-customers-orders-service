@@ -33,26 +33,26 @@ class ChoicesTests(TestCase):
 
     def test_get_choice_name(self):
         # Assert that we get the correct value
-        self.assertEqual(Status.get_choice_name('P'), 'PENDING')
-        self.assertEqual(Status.get_choice_name('A'), 'APPROVED')
+        self.assertEqual(Status.get_choice_display('P'), 'PENDING')
+        self.assertEqual(Status.get_choice_display('A'), 'APPROVED')
 
         # Assert that StopIteration is raised when a value not belonging to
         # any of the choices in the enum is passed
-        self.assertRaises(StopIteration, Status.get_choice_name, 'S')
-        self.assertRaises(StopIteration, Status.get_choice_name, None)
-        self.assertRaises(StopIteration, Status.get_choice_name, 6)
+        self.assertRaises(StopIteration, Status.get_choice_display, 'S')
+        self.assertRaises(StopIteration, Status.get_choice_display, None)
+        self.assertRaises(StopIteration, Status.get_choice_display, 6)
 
     def test_get_value(self):
         # Assert that we get the correct value
-        self.assertEqual(Status.get_value('PENDING'), 'P')
-        self.assertEqual(Status.get_value('REJECTED'), 'R')
+        self.assertEqual(Status.get_choice_value('PENDING'), 'P')
+        self.assertEqual(Status.get_choice_value('REJECTED'), 'R')
 
         # Assert that a KeyError is raised when a value that isn't a member of
         # the enum is given
-        self.assertRaises(KeyError, Status.get_value, 'CREATED')
-        self.assertRaises(KeyError, Status.get_value, '')
-        self.assertRaises(KeyError, Status.get_value, None)
-        self.assertRaises(KeyError, Status.get_value, 7)
+        self.assertRaises(KeyError, Status.get_choice_value, 'CREATED')
+        self.assertRaises(KeyError, Status.get_choice_value, '')
+        self.assertRaises(KeyError, Status.get_choice_value, None)
+        self.assertRaises(KeyError, Status.get_choice_value, 7)
 
     def test_to_list(self):
         # Assert that we get the correct value
