@@ -49,17 +49,17 @@ The main components of the service are:
   items associated with it, for an order to be valid and approvable, it should
   contain at least one inventory item. Each order has one of the following 
   states:
-  1. **_created: N_** - This is the default state of a newly created order. An
+  1. **_CREATED: N_** - This is the default state of a newly created order. An
     order with this state can transition to any other state.
      
-  2. **_pending: P_** - This state indicates that an order is ready for
+  2. **_PENDING: P_** - This state indicates that an order is ready for
      review. An order can only transition to this state from the _created_ 
      state and can only transition to one of the following states from this
      state: _approved_, _canceled_ or _rejected_. Both employees and customers
      can mark an order as ready for review transitioning it to this state. An
      order can only be marked as ready for review if it has at least one item.
      
-  3. **_approved: A_** - This state represents an order that has already been
+  3. **_APPROVED: A_** - This state represents an order that has already been
      reviewed by an employee and okayed for delivery. An order can only
      transition to this state from the _pending_ state and cannot transition
      into any further states after this. An order can only be approved if it
@@ -67,12 +67,12 @@ The main components of the service are:
      items are subtracted from the available inventory. Only employees can 
      approve an order.
      
-  4. **_rejected: R_** - This state represents an order that has already been
+  4. **_REJECTED: R_** - This state represents an order that has already been
      reviewed by an employee but not okayed for delivery. An order can only
      transition to this state from the _pending_ state and cannot transition
      into any further states after this. Only employees can reject an order.
      
-  5. **_canceled: C_** - This state represents an order that has been canceled 
+  5. **_CANCELED: C_** - This state represents an order that has been canceled 
      and thus should not be considered for further review. An order can only
      transition into this state from either the _created_ or _pending_ states
      but cannot transition into any other further states after this. Both

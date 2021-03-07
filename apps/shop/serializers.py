@@ -1,5 +1,4 @@
 from enum import Enum
-from typing import Optional
 
 from django.contrib.auth import get_user_model
 
@@ -12,7 +11,6 @@ from rest_framework import serializers
 from ..core.serializers import AuditBaseSerializer
 
 from .models import (
-    ZERO_AMOUNT,
     Customer,
     Employee,
     Inventory,

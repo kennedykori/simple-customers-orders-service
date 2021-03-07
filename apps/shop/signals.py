@@ -77,22 +77,22 @@ def notify_customer(
         if not(update_fields and 'state' in update_fields):
             return
 
-        if instance.state == Order.OrderState.get_value('approved'):
+        if instance.state == Order.OrderState.APPROVED.choice_value:
             SMS.send(
                 ORDER_APPROVED_MSG % instance.pk,
                 [instance.customer.phone_number]
             )
-        elif instance.state == Order.OrderState.get_value('canceled'):
+        elif instance.state == Order.OrderState.CANCELED.choice_value:
             SMS.send(
                 ORDER_CANCELED_MSG % instance.pk,
                 [instance.customer.phone_number]
             )
-        elif instance.state == Order.OrderState.get_value('pending'):
+        elif instance.state == Order.OrderState.PENDING.choice_value:
             SMS.send(
                 ORDER_PENDING_MSG % instance.pk,
                 [instance.customer.phone_number]
             )
-        elif instance.state == Order.OrderState.get_value('rejected'):
+        elif instance.state == Order.OrderState.REJECTED.choice_value:
             SMS.send(
                 ORDER_REJECTED_MSG % instance.pk,
                 [instance.customer.phone_number]
