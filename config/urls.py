@@ -32,7 +32,7 @@ urlpatterns = [
         namespace='oidc_provider'
     )),
     path('accounts/login/', LoginView.as_view(), name='login'),
-    path('accounts/login/', LogoutView.as_view(
+    path('accounts/logout/', LogoutView.as_view(
         next_page=settings.LOGIN_URL),
         name='logout'
     ),
@@ -41,15 +41,15 @@ urlpatterns = [
     path('api/auth-token/', ObtainAuthToken.as_view(schema=None)),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path(
-        'api/schema/swagger-ui/',
-        SpectacularSwaggerView.as_view(url_name='schema'),
-        name='swagger-ui'
-    ),
-    path(
         'api/schema/redoc/',
         SpectacularRedocView.as_view(url_name='schema'),
         name='redoc'
     ),
+    path(
+        'api/schema/swagger-ui/',
+        SpectacularSwaggerView.as_view(url_name='schema'),
+        name='swagger-ui'
+    )
 ]
 
 if settings.DEBUG:
