@@ -8,16 +8,36 @@ class Choices(Enum):
     enumeration.
     """
 
-    @classmethod
-    def get_choice_name(cls, value: str) -> str:
+    @property
+    def choice_display(self) -> str:
         """
-        Given the value of a choice, return the choice's human readable name.
-        A `StopIteration` is raised if the given value doesn't belong to any
+        Returns the choice's display value. This is the value that is
+        displayed on forms to users.
+
+        :return: the choice's display value.
+        """
+        return self.value[1]
+
+    @property
+    def choice_value(self) -> str:
+        """
+        Returns the choice's actual value. This is the value that is persisted
+        to the database.
+
+        :return: the choice's actual value.
+        """
+        return self.value[0]
+
+    @classmethod
+    def get_choice_display(cls, value: str) -> str:
+        """
+        Given the value of a choice, return the choice's display value. A
+        `StopIteration` is raised if the given value doesn't belong to any
         choice in this enum.
 
         :param value: The value of a choice.
 
-        :return: the human readable name of a choice with the given value.
+        :return: the display value of the choice with the given value.
 
         :raise StopIteration: If the given value doesn't belong to any choice
         in this enum.
@@ -25,7 +45,7 @@ class Choices(Enum):
         return next(x.value[1] for x in cls if x.value[0] == value)
 
     @classmethod
-    def get_value(cls, choice: str) -> str:
+    def get_choice_value(cls, choice: str) -> str:
         """
         Given a choice in this enum, return the choice's value. Will raise a
         `KeyError` if the given choice is not a valid member of this enum.
