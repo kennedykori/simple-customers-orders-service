@@ -178,14 +178,14 @@ class Employee(AuditBase):
         """
         This represents the gender of a person.
         """
-        male = ('M', 'MALE')
-        female = ('F', 'FEMALE')
+        MALE = ('M', 'MALE')
+        FEMALE = ('F', 'FEMALE')
 
     name = models.CharField(max_length=250)
     gender = models.CharField(
         max_length=1,
         choices=Gender.to_list(),
-        default='M'
+        default=Gender.MALE.choice_value
     )
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -208,22 +208,22 @@ class Inventory(AuditBase):
         """
         The different types of beverages in the shop.
         """
-        coffee = ('C', 'COFFEE')
-        tea = ('T', 'TEA')
+        COFFEE = ('C', 'COFFEE')
+        TEA = ('T', 'TEA')
 
     class InventoryItemState(Choices):
         """
         The different availability states of an item in the **Inventory**.
         """
-        available = ('A', 'AVAILABLE')
-        few_remaining = ('F', 'FEW REMAINING')
-        out_of_stock = ('O', 'OUT OF STOCK')
+        AVAILABLE = ('A', 'AVAILABLE')
+        FEW_REMAINING = ('F', 'FEW REMAINING')
+        OUT_OF_STOCK = ('O', 'OUT OF STOCK')
 
     beverage_name = models.CharField(max_length=150)
     beverage_type = models.CharField(
         max_length=1,
         choices=BeverageTypes.to_list(),
-        default='C'
+        default=BeverageTypes.COFFEE.choice_value
     )
     caffeinated = models.BooleanField(default=False)
     flavored = models.BooleanField(default=False)
@@ -275,21 +275,21 @@ class Inventory(AuditBase):
         Returns the current availability state of this item. The possible
         states are:
 
-        * **available** - Indicates that there are plenty of items in the
+        * **AVAILABLE** - Indicates that there are plenty of items in the
           stock, that is, items greater than this item's warn limit.
-        * **few_remaining** - Indicates that items equal or fewer than this
+        * **FEW REMAINING** - Indicates that items equal or fewer than this
           item's warn limit are remaining in stock.
-        * **out_of_stock** - Indicates that there are no items remaining in
+        * **OUT OF STOCK** - Indicates that there are no items remaining in
           stock.
 
         :return: the current availability state of this item.
         """
         if self.is_out_of_stock:
-            return Inventory.InventoryItemState.get_choice_name('O')
+            return Inventory.InventoryItemState.OUT_OF_STOCK.choice_display
         elif self.is_few_remaining:
-            return Inventory.InventoryItemState.get_choice_name('F')
-        # For the default case, return available
-        return Inventory.InventoryItemState.get_choice_name('A')
+            return Inventory.InventoryItemState.FEW_REMAINING.choice_display
+        # For the default case, return AVAILABLE
+        return Inventory.InventoryItemState.AVAILABLE.choice_display
 
     def deduct(self, user: User, quantity: int) -> int:
         """
@@ -336,45 +336,45 @@ class Order(AuditBase):
     This model represents a **Customer** order. An **Order** contains zero or
     more **OrderItem** and has the following states.
 
-    * **created** - This is the default state of a newly created order. An
+    * **CREATED** - This is the default state of a newly CREATED order. An
       order with this state can transition to any other states. Both employees
       and customers can create new orders.
-    * **pending** - This state represents an order that is complete and waiting
+    * **PENDING** - This state represents an order that is complete and waiting
       for review by an employee. An order can only transition to this state
-      from the *created* state and can only transition to one of the following
-      states: *approved*, *canceled* or *rejected* from this state. Both
+      from the *CREATED* state and can only transition to one of the following
+      states: *APPROVED*, *CANCELED* or *REJECTED* from this state. Both
       employees and customers can mark an order as done transitioning it to
       this state.
-    * **approved** - This state represents an order that has already been
+    * **APPROVED** - This state represents an order that has already been
       reviewed by an employee and okayed for delivery. An order can only
-      transition to this state from the *pending* state and cannot transition
+      transition to this state from the *PENDING* state and cannot transition
       into any further states after this. An order can only be approved if it
       contains at least one **OrderItem**. Once an order is approved, all it's
       **OrderItems** are subtracted from the available inventory. Only
       employees can approve an order.
-    * **rejected** - This state represents an order that has already been
+    * **REJECTED** - This state represents an order that has already been
       reviewed by an employee but not okayed for delivery. An order can only
-      transition to this state from the *pending* state and cannot transition
+      transition to this state from the *PENDING* state and cannot transition
       into any further states after this. Only employees can reject an order.
-    * **canceled** - This state represents an order that has been canceled and
+    * **CANCELED** - This state represents an order that has been canceled and
       thus should not be considered for further review. An order can only
-      transition into this state from either the *created* or *pending* states
+      transition into this state from either the *CREATED* or *PENDING* states
       but cannot transition into any other further states after this. Both
       employees and customers can cancel an order.
 
     An **OrderItem** can only be added or updated on an order that is in the
-    **created** or **pending** state.
+    **CREATED** or **PENDING** state.
     """
 
     class OrderState(Choices):
         """
         The different states of an **Order**.
         """
-        approved = ('A', 'APPROVED')
-        canceled = ('C', 'CANCELED')
-        created = ('N', 'CREATED')
-        pending = ('P', 'PENDING')
-        rejected = ('R', 'REJECTED')
+        APPROVED = ('A', 'APPROVED')
+        CANCELED = ('C', 'CANCELED')
+        CREATED = ('N', 'CREATED')
+        PENDING = ('P', 'PENDING')
+        REJECTED = ('R', 'REJECTED')
 
     STATE_CHANGE_FORBIDDEN_ERROR_MSG: str = (
         'Changing the state of an order from "%(current_state)s" to '
@@ -382,7 +382,7 @@ class Order(AuditBase):
     )
     ITEM_LIST_MODIFICATION_FORBIDDEN_ERROR_MSG: str = (
         "An order's item list can only be modified while the order is either "
-        'in the "created" or "pending" state. The current state of the order '
+        'in the "CREATED" or "PENDING" state. The current state of the order '
         'is "%s".'
     )
 
@@ -390,7 +390,7 @@ class Order(AuditBase):
     state = models.CharField(
         max_length=1,
         choices=OrderState.to_list(),
-        default='N'
+        default=OrderState.CREATED.choice_value
     )
     handler = models.ForeignKey(
         Employee,
@@ -406,7 +406,7 @@ class Order(AuditBase):
         """
         Returns *True* if this order's **OrderItems** can be modified or
         added, *False* otherwise. An order's item list can only be updated
-        while the order is either in the *created* or *pending* state.
+        while the order is either in the *CREATED* or *PENDING* state.
 
         :return: True if this order's items list can be modified,
                  False otherwise.
@@ -416,52 +416,52 @@ class Order(AuditBase):
     @property
     def is_approved(self) -> bool:
         """
-        Returns *True* if this order is marked as *approved*, *False*
+        Returns *True* if this order is marked as *APPROVED*, *False*
         otherwise.
 
-        :return: True if this order is marked as approved, False otherwise.
+        :return: True if this order is marked as APPROVED, False otherwise.
         """
-        return self.state == Order.OrderState.get_value('approved')
+        return self.state == Order.OrderState.APPROVED.choice_value
 
     @property
     def is_canceled(self) -> bool:
         """
-        Returns *True* if this order is marked as *canceled*, *False*
+        Returns *True* if this order is marked as *CANCELED*, *False*
         otherwise.
 
-        :return: True if this order is marked as canceled, False otherwise.
+        :return: True if this order is marked as CANCELED, False otherwise.
         """
-        return self.state == Order.OrderState.get_value('canceled')
+        return self.state == Order.OrderState.CANCELED.choice_value
 
     @property
     def is_created(self) -> bool:
         """
-        Returns *True* if this order is in the *created* state, *False*
+        Returns *True* if this order is in the *CREATED* state, *False*
         otherwise.
 
-        :return: True if this order is in the created state, False otherwise.
+        :return: True if this order is in the CREATED state, False otherwise.
         """
-        return self.state == Order.OrderState.get_value('created')
+        return self.state == Order.OrderState.CREATED.choice_value
 
     @property
     def is_pending(self) -> bool:
         """
-        Returns *True* if this order is marked as *pending*, *False*
+        Returns *True* if this order is marked as *PENDING*, *False*
         otherwise.
 
-        :return: True if this order is marked as pending, False otherwise.
+        :return: True if this order is marked as PENDING, False otherwise.
         """
-        return self.state == Order.OrderState.get_value('pending')
+        return self.state == Order.OrderState.PENDING.choice_value
 
     @property
     def is_rejected(self) -> bool:
         """
-        Returns *True* if this order is marked as *rejected*, *False*
+        Returns *True* if this order is marked as *REJECTED*, *False*
         otherwise.
 
-        :return: True if this order is marked as rejected, False otherwise.
+        :return: True if this order is marked as REJECTED, False otherwise.
         """
-        return self.state == Order.OrderState.get_value('rejected')
+        return self.state == Order.OrderState.REJECTED.choice_value
 
     @property
     def total_price(self) -> Decimal:
@@ -492,7 +492,7 @@ class Order(AuditBase):
         adds it to this order. If the provided item is out of stock, this
         method should fail immediately by raising an **OutOfStockError**. An
         **OperationForbiddenError** will also be raised in case this method
-        is called on an order that is not on the *created* or *pending* state.
+        is called on an order that is not on the *CREATED* or *PENDING* state.
         Returns the created **OrderItem**.
 
         :param user: The user performing this action.
@@ -503,18 +503,18 @@ class Order(AuditBase):
 
         :return: the created OrderItem instance.
 
-        :raise OperationForbiddenError: If this order is not in the created
-               or pending state.
+        :raise OperationForbiddenError: If this order is not in the CREATED
+               or PENDING state.
         :raise OutOfStockError: if the provided item is out of stock.
         """
         from .exceptions import OutOfStockError, OperationForbiddenError
 
-        # If this order is not in the "created" or "pending" state, raise an
+        # If this order is not in the "CREATED" or "PENDING" state, raise an
         # OperationForbiddenError
         if not self.can_update_order_items:
             raise OperationForbiddenError(
                 self.ITEM_LIST_MODIFICATION_FORBIDDEN_ERROR_MSG %
-                Order.OrderState.get_choice_name(self.state)
+                Order.OrderState.get_choice_display(self.state)
             )
 
         # If the given item is out of stock raise an OutOfStockError
@@ -534,8 +534,8 @@ class Order(AuditBase):
         """
         Given an item in this order's item list, remove the item from this
         order's item list. An **OperationForbiddenError** will be raised in
-        case this method is called on an order that is not on the *created*
-        or *pending* state. If the given item is not part of this order's item
+        case this method is called on an order that is not on the *CREATED*
+        or *PENDING* state. If the given item is not part of this order's item
         list, then an **ItemNotInOrderError** is raised. Returns the
         **OrderItem** instance of the deleted item.
 
@@ -545,17 +545,17 @@ class Order(AuditBase):
 
         :raise ItemNotInOrderError: If the given item is not part of this
                order's item list.
-        :raise OperationForbiddenError: If this order is not in the created
-               or pending state.
+        :raise OperationForbiddenError: If this order is not in the CREATED
+               or PENDING state.
         """
         from .exceptions import ItemNotInOrderError, OperationForbiddenError
 
-        # If this order is not in the "created" or "pending" state, raise an
+        # If this order is not in the "CREATED" or "PENDING" state, raise an
         # OperationForbiddenError
         if not self.can_update_order_items:
             raise OperationForbiddenError(
                 self.ITEM_LIST_MODIFICATION_FORBIDDEN_ERROR_MSG %
-                Order.OrderState.get_choice_name(self.state)
+                Order.OrderState.get_choice_display(self.state)
             )
 
         # If the given item is not part of this order's item list, raise an
@@ -579,7 +579,7 @@ class Order(AuditBase):
         Given an item in this order's item list, update it's details to match
         the given quantity and unit price. An **OperationForbiddenError** will
         be raised in case this method is called on an order that is not on the
-        *created* or *pending* state. If the given item is not part of this
+        *CREATED* or *PENDING* state. If the given item is not part of this
         order's item list, then an **ItemNotInOrderError** is raised. Returns
         the updated **OrderItem**.
 
@@ -594,17 +594,17 @@ class Order(AuditBase):
 
         :raise ItemNotInOrderError: If the given item is not part of this
                order's item list.
-        :raise OperationForbiddenError: If this order is not in the created
-               or pending state.
+        :raise OperationForbiddenError: If this order is not in the CREATED
+               or PENDING state.
         """
         from .exceptions import ItemNotInOrderError, OperationForbiddenError
 
-        # If this order is not in the "created" or "pending" state, raise an
+        # If this order is not in the "CREATED" or "PENDING" state, raise an
         # OperationForbiddenError
         if not self.can_update_order_items:
             raise OperationForbiddenError(
                 self.ITEM_LIST_MODIFICATION_FORBIDDEN_ERROR_MSG %
-                Order.OrderState.get_choice_name(self.state)
+                Order.OrderState.get_choice_display(self.state)
             )
 
         # If the given item is not part of this order's item list, raise an
@@ -653,9 +653,9 @@ class Order(AuditBase):
     def approve(self, employee: Employee, comments: str = None) -> None:
         """
         Marks this order as approved and ready for delivery to the customer by
-        changing it's state to *approved*. An order can only change to the
-        *approved* state from the *pending* state. Therefore if this order is
-        not in the *pending* state, then an **OperationForbiddenError** will
+        changing it's state to *APPROVED*. An order can only change to the
+        *APPROVED* state from the *PENDING* state. Therefore if this order is
+        not in the *PENDING* state, then an **OperationForbiddenError** will
         be raised.
 
         A stock deduction of each item in this order's item list is also
@@ -674,23 +674,21 @@ class Order(AuditBase):
 
         :raise NotEnoughStockError: If there isn't enough stock in any of the
                items in this order's item list to satisfy the order.
-        :raise OperationForbiddenError: If this order is not in the pending
+        :raise OperationForbiddenError: If this order is not in the PENDING
                state.
         :raise OrderEmptyError: If this order has no associated OrderItems.
         """
         from .exceptions import OperationForbiddenError, OrderEmptyError
 
-        # If order is not in the "pending" state, raise an
+        # If order is not in the "PENDING" state, raise an
         # OperationForbiddenError
         if not self.is_pending:
             raise OperationForbiddenError(
                 self.STATE_CHANGE_FORBIDDEN_ERROR_MSG % {
-                    'current_state': Order.OrderState.get_choice_name(
+                    'current_state': Order.OrderState.get_choice_display(
                         self.state
                     ),
-                    'new_state': Order.OrderState.get_choice_name(
-                        Order.OrderState.get_value('approved')
-                    )
+                    'new_state': Order.OrderState.APPROVED.choice_display
                 }
             )
 
@@ -716,14 +714,14 @@ class Order(AuditBase):
                 comments=comments,
                 handler=employee,
                 review_date=now(),
-                state=Order.OrderState.get_value('approved')
+                state=Order.OrderState.APPROVED.choice_value
             )
 
     def cancel(self, user: User, comments: str = None) -> None:
         """
-        Marks this order as canceled by changing it's state to *canceled*. An
-        order can only change to the *canceled* state from either the
-        *created* or *pending* state. Therefore calling this method while the
+        Marks this order as canceled by changing it's state to *CANCELED*. An
+        order can only change to the *CANCELED* state from either the
+        *CREATED* or *PENDING* state. Therefore calling this method while the
         order is in any other state will result in an
         **OperationForbiddenError** being raised. An optional comment
         describing the reasons for cancellation can be provided.
@@ -731,37 +729,35 @@ class Order(AuditBase):
         :param user: The user performing this operation.
         :param comments: Optional remarks regarding the cancellation.
 
-        :raise OperationForbiddenError: If this order is not in the created or
-               pending state.
+        :raise OperationForbiddenError: If this order is not in the CREATED or
+               PENDING state.
         """
         from .exceptions import OperationForbiddenError
 
-        # If order is not in the "created" or "pending" state, raise an
+        # If order is not in the "CREATED" or "PENDING" state, raise an
         # OperationForbiddenError
         if not (self.is_created or self.is_pending):
             raise OperationForbiddenError(
                 self.STATE_CHANGE_FORBIDDEN_ERROR_MSG % {
-                    'current_state': Order.OrderState.get_choice_name(
+                    'current_state': Order.OrderState.get_choice_display(
                         self.state
                     ),
-                    'new_state': Order.OrderState.get_choice_name(
-                        Order.OrderState.get_value('canceled')
-                    )
+                    'new_state': Order.OrderState.CANCELED.choice_display
                 }
             )
 
-        # Update the order to "pending" state
+        # Update the order to "PENDING" state
         self.update(
             user,
             comments=comments,
-            state=Order.OrderState.get_value('canceled')
+            state=Order.OrderState.CANCELED.choice_value
         )
 
     def mark_ready_for_review(self, user: User) -> None:
         """
         Marks this order as ready for review by changing it's state to
-        *pending*. An order can only change to the *pending* state from the
-        *created* state so if this order is not in the *created* state, then
+        *PENDING*. An order can only change to the *PENDING* state from the
+        *CREATED* state so if this order is not in the *CREATED* state, then
         an **OperationForbiddenError** will be raised.
 
         If this order's item list is empty, i,e has no associated
@@ -769,23 +765,21 @@ class Order(AuditBase):
 
         :param user: The user performing this operation.
 
-        :raise OperationForbiddenError: If this order is not in the created
+        :raise OperationForbiddenError: If this order is not in the CREATED
                state.
         :raise OrderEmptyError: If this order has no associated OrderItems.
         """
         from .exceptions import OperationForbiddenError, OrderEmptyError
 
-        # If order is not in the "created" state, raise an
+        # If order is not in the "CREATED" state, raise an
         # OperationForbiddenError
         if not self.is_created:
             raise OperationForbiddenError(
                 self.STATE_CHANGE_FORBIDDEN_ERROR_MSG % {
-                    'current_state': Order.OrderState.get_choice_name(
+                    'current_state': Order.OrderState.get_choice_display(
                         self.state
                     ),
-                    'new_state': Order.OrderState.get_choice_name(
-                        Order.OrderState.get_value('pending')
-                    )
+                    'new_state': Order.OrderState.PENDING.choice_display
                 }
             )
 
@@ -794,40 +788,38 @@ class Order(AuditBase):
             raise OrderEmptyError(
                 self,
                 'An order should contain at least one Order item before it '
-                'can be marked as "pending".'
+                'can be marked as "PENDING".'
             )
 
-        # Update the order to "pending" state
-        self.update(user, state=Order.OrderState.get_value('pending'))
+        # Update the order to "PENDING" state
+        self.update(user, state=Order.OrderState.PENDING.choice_value)
 
     def reject(self, employee: Employee, comments: str) -> None:
         """
-        Marks this order as rejected by changing it's state to *rejected*. An
-        order can only change to the *rejected* state from the *pending*
-        state. Therefore, if this order is not in the *pending* state when
+        Marks this order as rejected by changing it's state to *REJECTED*. An
+        order can only change to the *REJECTED* state from the *PENDING*
+        state. Therefore, if this order is not in the *PENDING* state when
         this method is called, then an **OperationForbiddenError** will be
         raised. The employee making the rejection must provide comments as to
-        why he/she is making the cancellation.
+        why he/she is making the rejection.
 
         :param employee: The employer performing this action.
         :param comments: Remarks regarding the rejection. Non optional.
 
-        :raise OperationForbiddenError: If this order is not in the pending
+        :raise OperationForbiddenError: If this order is not in the PENDING
                state.
         """
         from .exceptions import OperationForbiddenError
 
-        # If order is not in the "pending" state, raise an
+        # If order is not in the "PENDING" state, raise an
         # OperationForbiddenError
         if not self.is_pending:
             raise OperationForbiddenError(
                 self.STATE_CHANGE_FORBIDDEN_ERROR_MSG % {
-                    'current_state': Order.OrderState.get_choice_name(
+                    'current_state': Order.OrderState.get_choice_display(
                         self.state
                     ),
-                    'new_state': Order.OrderState.get_choice_name(
-                        Order.OrderState.get_value('rejected')
-                    )
+                    'new_state': Order.OrderState.REJECTED.choice_display
                 }
             )
 
@@ -837,7 +829,7 @@ class Order(AuditBase):
             comments=comments,
             handler=employee,
             review_date=now(),
-            state=Order.OrderState.get_value('rejected')
+            state=Order.OrderState.REJECTED.choice_value
         )
 
     def __str__(self):
