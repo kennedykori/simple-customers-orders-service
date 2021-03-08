@@ -74,7 +74,7 @@
 
                 <form id="fm_signin" class="ui large form" action="{% url 'login' %}" method="post">
                     {% csrf_token %}
-                    <input type="hidden" name="submited_form" value="signin">
+                    <input type="hidden" name="next" value="{{ next }}">
                     <div class="ui stacked segment">
                         <div class="field">
                             <div class="ui left icon input">
@@ -94,6 +94,15 @@
                     {% if form.errors %}
 	                    <div class="ui error message">Wrong Credentials</div>
 	                {% endif %}
+                    {% if next %}
+                        {% if user.is_authenticated %}
+                            <div class="ui error message">
+                                Your account doesn't have access to this page. To proceed, please login with an account that has access.
+                            </div>
+                        {% else %}
+                            <div class="ui info message">Please login to see this page.</div>
+                        {% endif %}
+                    {% endif %}
                 </form>
             </div>
         </div>
