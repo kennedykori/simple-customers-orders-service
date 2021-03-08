@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     # Third Party Apps
     'drf_spectacular',
     'dynamic_rest',
+    'oauth2_provider',
     'oidc_provider',
     'rest_framework',
     'rest_framework.authtoken',
@@ -162,6 +163,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
+        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
         'oidc_auth.authentication.JSONWebTokenAuthentication',
         'oidc_auth.authentication.BearerTokenAuthentication',
     ),
@@ -174,6 +176,19 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'HTML_SELECT_CUTOFF': 1000
+}
+
+
+####################################################################################################
+# DOT
+####################################################################################################
+
+OAUTH2_PROVIDER = {
+    'SCOPES': {
+        'customer:read': 'Access your data',
+        'order:read': 'Access your orders',
+        'order:write': 'Create new orders and modify your existing orders',
+    }
 }
 
 

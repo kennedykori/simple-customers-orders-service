@@ -27,13 +27,19 @@ from rest_framework.authtoken.views import ObtainAuthToken
 # URLs
 
 urlpatterns = [
-    path('accounts/', include(
-        'oidc_provider.urls',
-        namespace='oidc_provider'
-    )),
+    path(
+        'accounts/',
+        include(
+            'oidc_provider.urls',
+            namespace='oidc_provider'
+        )
+    ),
     path('accounts/login/', LoginView.as_view(), name='login'),
-    path('accounts/logout/', LogoutView.as_view(
-        next_page=settings.LOGIN_URL),
+    path(
+        'accounts/logout/',
+        LogoutView.as_view(
+            next_page=settings.LOGIN_URL
+        ),
         name='logout'
     ),
     path('api/', include('apps.core.urls')),
@@ -49,7 +55,8 @@ urlpatterns = [
         'api/schema/swagger-ui/',
         SpectacularSwaggerView.as_view(url_name='schema'),
         name='swagger-ui'
-    )
+    ),
+    path('o/', include('oauth2_provider.urls', namespace='oauth2_provider')),
 ]
 
 if settings.DEBUG:
