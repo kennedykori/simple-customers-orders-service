@@ -97,12 +97,16 @@ documentation of the service in Swagger UI can be accessed at the
 endpoint and, HTML documentation in Redoc can be accessed at the 
 [api/schema/redoc/](https://beverage-shop.herokuapp.com/api/schema/redoc/).
 
-The service both supports OpenID connect and Token authentication. To obtain
-a token, send a *POST* request to the 
-[api/auth-token/](https://beverage-shop.herokuapp.com/api/auth-token/) 
-endpoint with the username and password of a user in the request body.
-OpenID Connect standard endpoints are available at the 
-[accounts/](https://beverage-shop.herokuapp.com/accounts/) endpoint.
+The service uses OAuth2 for authentication. All the standard OAuth2 endpoints 
+are available at the [o/](https://beverage-shop.herokuapp.com/o/) endpoint. To
+create a client, visit
+[o/applications/register/](https://beverage-shop.herokuapp.com/o/applications/register/)
+in your browser. Fill in the provided form and click save. Take note of the
+generated client id and client secret, you will need them to get an access 
+token from the server. For more details on how to authenticate a Django 
+application using OAuth2, checkout the docs 
+[here](https://django-oauth-toolkit.readthedocs.io/en/latest/).
+
 
 ## Getting Started
 
@@ -174,3 +178,12 @@ To view the coverage report, run:
 ```bash
  coverage report -m
 ```
+
+## What to improvement
+
+* Add more tests to minimize bugs and improve test coverage.
+* Add proper endpoints for OAuth2 and OpenId clients management.
+* Use object level permissions, or a proper access policy manager together 
+  with OAuth2 for better access control management.
+* Setup a cron job for clearing expired access and refresh tokens.
+
