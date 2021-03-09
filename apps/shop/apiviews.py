@@ -1,10 +1,14 @@
+from oauth2_provider.contrib.rest_framework.permissions import (
+    TokenHasResourceScope
+)
+
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.views import Response
 
 from ..core.apiviews import AuditBaseViewSet
-from ..core.permissions import DenyAll, IsOwner,ReadOnly
+from ..core.permissions import DenyAll, IsOwner, ReadOnly
 
 from .exceptions import (
     NotEnoughStockError,
@@ -33,21 +37,31 @@ class CustomerViewSet(AuditBaseViewSet):
     Customers API.
     """
     queryset = Customer.objects.all()
+    permission_classes = [IsOwner | IsAdminUser | TokenHasResourceScope]
+    required_scopes = ['customer']
     serializer_class = CustomerSerializer
 
     def get_queryset(self, queryset=None):
         queryset = super().get_queryset(queryset)
         user = self.request.user
-
         if not user.is_staff:
             queryset = queryset.filter(user=user)
 
         return queryset
 
+    def get_permissions(self):
+        permission_classes = self.permission_classes
+
+        if self.action == 'create':
+            permission_classes = (IsAuthenticated,)
+        elif self.action == 'destroy':
+            permission_classes = (IsAdminUser,)
+
+        return [permission() for permission in permission_classes]
+
     @action(
         detail=True,
         methods=['POST'],
-        permission_classes=[IsOwner | IsAdminUser],
         serializer_class=NewOrderSerializer)
     def make_order(self, request, pk=None):
         """
@@ -104,6 +118,8 @@ class OrderViewSet(AuditBaseViewSet):
     Orders API.
     """
     queryset = Order.objects.all()
+    permission_classes = (IsAdminUser | IsOrderOwner | TokenHasResourceScope,)
+    required_scopes = ['order']
     serializer_class = OrderSerializer
 
     def get_permissions(self):
@@ -180,7 +196,6 @@ class OrderViewSet(AuditBaseViewSet):
     @action(
         detail=True,
         methods=['POST'],
-        permission_classes=(IsAdminUser | IsOrderOwner,),
         serializer_class=EditOrderItemListSerializer)
     def add_item(self, request, pk=None):
         """
@@ -210,7 +225,6 @@ class OrderViewSet(AuditBaseViewSet):
     @action(
         detail=True,
         methods=['POST'],
-        permission_classes=(IsAdminUser | IsOrderOwner,),
         serializer_class=EditOrderItemListSerializer)
     def remove_item(self, request, pk=None):
         """
@@ -238,7 +252,6 @@ class OrderViewSet(AuditBaseViewSet):
     @action(
         detail=True,
         methods=['POST'],
-        permission_classes=(IsAdminUser | IsOrderOwner,),
         serializer_class=EditOrderItemListSerializer)
     def update_item(self, request, pk=None):
         """
@@ -321,7 +334,6 @@ class OrderViewSet(AuditBaseViewSet):
     @action(
         detail=True,
         methods=['PATCH'],
-        permission_classes=(IsAdminUser | IsOrderOwner,),
         serializer_class=EditOrderStateSerializer)
     def cancel(self, request, pk=None):
         """
@@ -355,7 +367,6 @@ class OrderViewSet(AuditBaseViewSet):
     @action(
         detail=True,
         methods=['PATCH'],
-        permission_classes=(IsAdminUser | IsOrderOwner,),
         serializer_class=EditOrderStateSerializer)
     def mark_ready_for_review(self, request, pk=None):
         """
