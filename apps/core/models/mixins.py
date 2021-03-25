@@ -159,6 +159,7 @@ class ValidateMixin(Model):
             # Skip validation
             return
 
+        error_dict = {}
         exclude = exclude or tuple()
         clean_fields_errors: Optional[ValidationError] = None
         validate_fields_errors: Optional[ModelValidationError] = None
@@ -181,15 +182,14 @@ class ValidateMixin(Model):
         if not(clean_fields_errors or validate_fields_errors):
             return
 
-        # Create a new error and fill it with the correct error details
-        error = ModelValidationError({})
+        # Fill "error_dict" with all the validation errors that occurred
         if clean_fields_errors:
-            error.update_error_dict(clean_fields_errors.error_dict)
+            clean_fields_errors.update_error_dict(error_dict)
         if validate_fields_errors:
-            error.update_error_dict(validate_fields_errors.error_dict)
+            validate_fields_errors.update_error_dict(error_dict)
 
-        # Raise the validation error
-        raise error
+        # Raise a validation error with all the collected errors
+        raise ModelValidationError(error_dict)
 
     def full_clean(
             self,
@@ -209,6 +209,7 @@ class ValidateMixin(Model):
             # Skip validation
             return
 
+        error_dict = {}
         full_clean_errors: Optional[ValidationError] = None
         validate_errors: Optional[ModelValidationError] = None
 
@@ -226,15 +227,14 @@ class ValidateMixin(Model):
         if not (full_clean_errors or validate_errors):
             return
 
-        # Create a new error and fill it with the correct error details
-        error = ModelValidationError({})
+        # Fill "error_dict" with all the validation errors that occurred
         if full_clean_errors:
-            error.update_error_dict(full_clean_errors.error_dict)
+            full_clean_errors.update_error_dict(error_dict)
         if validate_errors:
-            error.update_error_dict(validate_errors.error_dict)
+            validate_errors.update_error_dict(error_dict)
 
-        # Raise the validation error
-        raise error
+        # Raise a validation error with all the collected errors
+        raise ModelValidationError(error_dict)
 
     def run_validation(
             self,
@@ -305,6 +305,7 @@ class ValidateMixin(Model):
         :raise ModelValidationError: if validation errors are present.
         """
         errors = {}
+        exclude = exclude or []
 
         # Get the fields that will be validated
         field: Field
