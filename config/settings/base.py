@@ -225,3 +225,14 @@ SPECTACULAR_SETTINGS = {
     'SCHEMA_PATH_PREFIX': r'/api/',
     'VERSION': '1.2.0',
 }
+
+
+####################################################################################################
+# Model Validation
+####################################################################################################
+
+MODEL_VALIDATION = {
+    'DISABLE_MODEL_VALIDATION': False,
+    'VALIDATE_NON_EDITABLES': False,
+    'VALIDATE_ON_SAVE': True
+}
