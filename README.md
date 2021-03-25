@@ -179,7 +179,7 @@ To view the coverage report, run:
  coverage report -m
 ```
 
-## What to improvement
+## What to improve
 
 * Add more tests to minimize bugs and improve test coverage.
 * Add proper endpoints for OAuth2 and OpenId clients management.
