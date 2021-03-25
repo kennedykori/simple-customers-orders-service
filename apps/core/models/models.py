@@ -3,6 +3,8 @@ from __future__ import annotations
 from django.conf import settings
 from django.db import models
 
+from .mixins import ValidateMixin
+
 
 # Base QuerySets
 
@@ -56,7 +58,7 @@ class AuditBaseManager(BaseManager):
 
 # Base Models
 
-class BaseModel(models.Model):
+class BaseModel(ValidateMixin):
     """
     This is the base `Model` of the project from which all concrete
     non-singleton models inherit from.
