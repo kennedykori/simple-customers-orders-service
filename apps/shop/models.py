@@ -8,7 +8,9 @@ from django.db import models, transaction
 from django.utils.timezone import now
 
 from ..core.enums import Choices
+from ..core.exceptions import ModelValidationError
 from ..core.models import AuditBase, AuditBaseManager
+
 
 # Constants
 
@@ -163,6 +165,61 @@ class Customer(AuditBase):
         """
         return Order.objects.create(self.user, customer=self)
 
+    def validate_created_by(self):
+        """
+        Ensure that only admin/staff users or the user instance associated with
+        the customer can add the customer.
+        """
+        creator: Optional[User] = getattr(self, 'created_by', None)
+        user: Optional[User] = getattr(self, 'user', None)
+
+        # If a "creator" has been provided, then the value must be a staff user
+        # or the user instance associated with this customer.
+        if creator and user and not creator.is_staff and creator != user:
+            raise ModelValidationError(
+                'Only staff users or the user to be associated with the '
+                'customer can add the customer.',
+                code='invalid'
+            )
+
+    def validate_updated_by(self):
+        """
+        Ensure that only admin/staff users or the user instance associated with
+        the customer can modify the customer's details.
+        """
+        modifier: Optional[User] = getattr(self, 'updated_by', None)
+        user: Optional[User] = getattr(self, 'user', None)
+
+        # If a "modifier" has been provided, then the value must be a staff
+        # user or the user instance associated with this customer.
+        if modifier and user and not modifier.is_staff and modifier != user:
+            raise ModelValidationError(
+                'Only staff users or the user associated with the customer '
+                "can modify the customer's details.",
+                code='invalid'
+            )
+
+    def validate_user(self):
+        """
+        Ensure that the user instance associated with a customer is a non-staff
+        user.
+        """
+        user: Optional[User] = getattr(self, 'user', None)
+
+        # Ensure that a value for the user property has been provided
+        if user is None:
+            raise ModelValidationError(
+                'Please provide the user instance associated with this '
+                'customer.',
+                code='required'
+            )
+        # Ensure that the user instance provided is not a non-staff user
+        if user.is_staff:
+            raise ModelValidationError(
+                'The user instance provided must be a non-staff user.',
+                code='invalid'
+            )
+
     def __str__(self):
         return self.name
 
@@ -194,6 +251,54 @@ class Employee(AuditBase):
     # Manager
     objects = EmployeeManager()
 
+    def validate_created_by(self):
+        """
+        Ensure that only admin/staff users can add new employees.
+        """
+        creator: Optional[User] = getattr(self, 'created_by', None)
+
+        # If a "creator" has been provided, then the value must be a staff user
+        if creator and not creator.is_staff:
+            raise ModelValidationError(
+                'Only staff users can add new employees.',
+                code='invalid'
+            )
+
+    def validate_updated_by(self):
+        """
+        Ensure that only admin/staff users can modify existing employees data.
+        """
+        modifier: Optional[User] = getattr(self, 'updated_by', None)
+
+        # If a "modifier" has been provided, then the value must be a staff
+        # user
+        if modifier and not modifier.is_staff:
+            raise ModelValidationError(
+                'Only staff users can modify existing employees data.',
+                code='invalid'
+            )
+
+    def validate_user(self):
+        """
+        Ensure that the user instance associated with an employee is always a
+        staff user.
+        """
+        user: User = getattr(self, 'user', None)
+
+        # Ensure that a value for the user property has been provided
+        if user is None:
+            raise ModelValidationError(
+                'Please provide the user instance associated with this '
+                'employee.',
+                code='required'
+            )
+        # Ensure that the user instance provided is a staff user
+        if not user.is_staff:
+            raise ModelValidationError(
+                'The user instance provided must be a staff user.',
+                code='invalid'
+            )
+
     def __str__(self):
         return self.name
 
@@ -205,9 +310,7 @@ class Inventory(AuditBase):
     """
 
     class BeverageTypes(Choices):
-        """
-        The different types of beverages in the shop.
-        """
+        """The different types of beverages in the shop."""
         COFFEE = ('C', 'COFFEE')
         TEA = ('T', 'TEA')
 
@@ -327,6 +430,60 @@ class Inventory(AuditBase):
         # Return the new stock value
         return new_stock
 
+    def validate_created_by(self):
+        """
+        Ensure that only admin/staff users can add new inventory items.
+        """
+        creator: Optional[User] = getattr(self, 'created_by', None)
+
+        # If a "creator" has been provided, then the value must be a staff user
+        if creator and not creator.is_staff:
+            raise ModelValidationError(
+                'Only staff users can add new inventory items.',
+                code='invalid'
+            )
+
+    def validate_on_hand(self):
+        """Ensure that the on hand quantity of an item cannot be negative."""
+        if self.on_hand < 0:
+            raise ModelValidationError(
+                'The available quantity of an item cannot be a negative '
+                'value.',
+                code='invalid'
+            )
+
+    def validate_price(self):
+        """Ensure that the price of an item cannot be negative."""
+        if self.price < ZERO_AMOUNT:
+            raise ModelValidationError(
+                'The price of an item cannot be negative.',
+                code='invalid'
+            )
+
+    def validate_updated_by(self):
+        """
+        Ensure that only admin/staff users can modify existing inventory items.
+        """
+        modifier: Optional[User] = getattr(self, 'updated_by', None)
+
+        # If a "modifier" has been provided, then the value must be a staff
+        # user
+        if modifier and not modifier.is_staff:
+            raise ModelValidationError(
+                'Only staff users can modify existing inventory items.',
+                code='invalid'
+            )
+
+    def validate_warn_limit(self):
+        """
+        Ensure that the warn limit of an item cannot be negative.
+        """
+        if self.on_hand < 0:
+            raise ModelValidationError(
+                'The warn limit of an item cannot be a negative value.',
+                code='invalid'
+            )
+
     def __str__(self):
         return self.beverage_name
 
@@ -367,9 +524,7 @@ class Order(AuditBase):
     """
 
     class OrderState(Choices):
-        """
-        The different states of an **Order**.
-        """
+        """The different states of an **Order**."""
         APPROVED = ('A', 'APPROVED')
         CANCELED = ('C', 'CANCELED')
         CREATED = ('N', 'CREATED')
@@ -480,7 +635,7 @@ class Order(AuditBase):
         return total_price
 
     ##########################################################################
-    # ORDER ITEM LIST MUTATORS
+    # ORDER ITEMS LIST MUTATORS
     ##########################################################################
     def add_item(
             self, user: User,
@@ -623,7 +778,7 @@ class Order(AuditBase):
         )
 
     ##########################################################################
-    # ORDER ITEM LIST ACCESSORS
+    # ORDER ITEMS LIST ACCESSORS
     ##########################################################################
     def get_item(self, item: Inventory) -> Optional[OrderItem]:
         """
@@ -832,6 +987,42 @@ class Order(AuditBase):
             state=Order.OrderState.REJECTED.choice_value
         )
 
+    def validate_created_by(self):
+        """
+        Ensure that only admin/staff users or the user instance associated with
+        an order's customer can add the order.
+        """
+        creator: Optional[User] = getattr(self, 'created_by', None)
+        customer: Optional[Customer] = getattr(self, 'customer', None)
+
+        # If a "creator" has been provided, then the value must be a staff user
+        # or the user instance associated with this order's customer.
+        if creator and customer and not creator.is_staff and \
+                creator != customer.user:
+            raise ModelValidationError(
+                'Only staff users or the customer to be associated with this '
+                'order can add the order.',
+                code='invalid'
+            )
+
+    def validate_updated_by(self):
+        """
+        Ensure that only admin/staff users or the user instance associated with
+        an order's customer can modify the order's details.
+        """
+        modifier: Optional[User] = getattr(self, 'updated_by', None)
+        customer: Optional[Customer] = getattr(self, 'customer', None)
+
+        # If a "modifier" has been provided, then the value must be a staff
+        # user or the user instance associated with this order's customer.
+        if modifier and customer and not modifier.is_staff and \
+                modifier != customer.user:
+            raise ModelValidationError(
+                "Only staff users or the user associated with an order's "
+                "customer can modify the order's details.",
+                code='invalid'
+            )
+
     def __str__(self):
         return f'{self.customer.name}:{self.get_state_display()}'
 
@@ -853,12 +1044,48 @@ class OrderItem(AuditBase):
     @property
     def total_price(self) -> Decimal:
         """
-        Return the total price of this order entry which is the unit price of
-        the item ordered multiplied by the quantity ordered.
+        Return the total price of this order entry which is the product of the
+        unit price of the item and the quantity ordered.
 
         :return: the total price of this this order entry.
         """
         return self.unit_price * self.quantity
+
+    def validate_created_by(self):
+        """
+        Ensure that only admin/staff users or the user instance associated with
+        an order's customer can add an order-item to the order.
+        """
+        creator: Optional[User] = getattr(self, 'created_by', None)
+        order: Optional[Order] = getattr(self, 'order', None)
+
+        # If a "creator" has been provided, then the value must be a staff user
+        # or the user instance associated with this order-item's customer.
+        if creator and order and not creator.is_staff and \
+                creator != order.customer.user:
+            raise ModelValidationError(
+                'Only staff users or the customer to be associated with an '
+                "order-item's order can add the order-item.",
+                code='invalid'
+            )
+
+    def validate_updated_by(self):
+        """
+        Ensure that only admin/staff users or the user instance associated with
+        an order's customer can modify the order's order-items.
+        """
+        modifier: Optional[User] = getattr(self, 'updated_by', None)
+        order: Optional[Order] = getattr(self, 'order', None)
+
+        # If a "modifier" has been provided, then the value must be a staff
+        # user or the user instance associated with this order-item's customer.
+        if modifier and order and not modifier.is_staff and \
+                modifier != order.customer.user:
+            raise ModelValidationError(
+                'Only staff users or the customer associated with an '
+                "order-item's order can modify the order-item's details.",
+                code='invalid'
+            )
 
     def __str__(self):
         return f'{self.order} | {self.item}'
