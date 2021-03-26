@@ -12,8 +12,16 @@ from ..exceptions import ModelValidationError
 
 # Default Model Validation Settings
 DEFAULT_MODEL_VALIDATION_SETTINGS = {
+    # If `True`, disables all validation for models including of when
+    # `.full_clean()` is called directly.
     'DISABLE_MODEL_VALIDATION': False,
-    'VALIDATE_NON_EDITABLES': False,
+
+    # If `True`, validation of non-editable fields(i.e, fields with their
+    # `editable` parameter set to `False`) will be skipped.
+    'VALIDATE_NON_EDITABLES': True,
+
+    # If `True`, validation will be run for an instance each time it's
+    # `.save()` method is called.
     'VALIDATE_ON_SAVE': True
 }
 
@@ -85,8 +93,11 @@ class ValidateMixin(Model):
        are no errors to report, the validate methods should return cleanly.
     #. Validation will be run for all fields with a validate method. This
        includes non-editable fields(i.e. fields whose `editable` parameter is
-       set to ``True``), if the model's `.validate_non_editables` parameter is
-       set to ``True``.
+       set to ``True``). To disable this behaviour, set the
+       `MODEL_VALIDATION.VALIDATE_NON_EDITABLES` setting or the
+       `.validate_non_editables` parameter to ``False`` for
+       project wise configuration or a single instance configuration
+       respectively.
 
     Here's an example::
 
