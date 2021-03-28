@@ -86,6 +86,7 @@ class OrderFactory(AuditBaseFactory):
     handler = None
     review_date = None
     comments = None
+    created_by = factory.LazyAttribute(lambda o: o.customer.user)
 
     class Meta:
         model = Order
@@ -133,6 +134,7 @@ class OrderItemFactory(AuditBaseFactory):
     item = factory.SubFactory(InventoryFactory)
     quantity = factory.Faker('pyint', min_value=0, max_value=9999, step=1)
     unit_price = factory.LazyAttribute(lambda oi: oi.item.price)
+    created_by = factory.LazyAttribute(lambda oi: oi.order.customer.user)
 
     class Meta:
         model = OrderItem
