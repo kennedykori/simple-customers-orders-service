@@ -9,7 +9,7 @@ from django.utils.timezone import now
 
 from ..core.enums import Choices
 from ..core.exceptions import ModelValidationError
-from ..core.models import AuditBase
+from ..core.models import AuditBase, AuditBaseManager
 
 
 # Constants
@@ -17,6 +17,42 @@ from ..core.models import AuditBase
 User = get_user_model()
 
 ZERO_AMOUNT = Decimal('0.00')
+
+
+# Managers
+
+class OrderItemManager(AuditBaseManager):
+    """
+    Manager for the ``OrderItem`` model.
+    """
+
+    def create(self, creator: User = None, *args, **kwargs) -> OrderItem:
+        """
+        Creates a new ``OrderItem`` with the given properties and by the given
+        creator. This override extends the default implementation of this
+        method to prohibit non-staff users from being able to specify the unit
+        price of an item. If the creator argument is not provided or contains
+        a non-staff user, then the ``unit_price`` of the created instance will
+        be set to the current price of the provided inventory item.
+
+        Also, if the ``unit_price`` is not provided, then it will default to
+        the current price of the provided inventory item regardless of the user
+        creating the order item.
+
+        :param creator: The user who initiated this create/request.
+        :param args: Positional arguments to use when creating the order item.
+        :param kwargs: Key-word arguments to use when creating the order item.
+
+        :return: the created order item.
+        """
+        item: Optional[Inventory] = kwargs.get('item', None)
+        unit_price: Optional[Decimal] = kwargs.get('unit_price', None)
+        if (unit_price is None or creator is None or not creator.is_staff)\
+                and item is not None:
+            kwargs['unit_price'] = item.price
+
+        order_item: OrderItem = super().create(creator, *args, **kwargs)
+        return order_item
 
 
 # Models
@@ -351,7 +387,7 @@ class Inventory(AuditBase):
         """
         Ensure that the warn limit of an item cannot be negative.
         """
-        if self.on_hand < 0:
+        if self.warn_limit < 0:
             raise ModelValidationError(
                 'The warn limit of an item cannot be a negative value.',
                 code='invalid'
@@ -913,6 +949,8 @@ class OrderItem(AuditBase):
         decimal_places=2,
         default=ZERO_AMOUNT
     )
+    # Manager
+    objects = OrderItemManager()
 
     @property
     def total_price(self) -> Decimal:
@@ -923,6 +961,23 @@ class OrderItem(AuditBase):
         :return: the total price of this this order entry.
         """
         return self.unit_price * self.quantity
+
+    def update(self, modifier: User = None, **kwargs) -> AuditBase:
+        """
+        Extend update and prevent non-staff users from being able to change the
+        unit price of an order item. If the user making this update is a
+        non-staff user, ignore modification of the ``unit_price`` property.
+
+        :param modifier: The user who initiated the update action/request.
+        :param kwargs: A dict of the fields names and their values to update
+               this instance with.
+
+        :return: the updated instance.
+        """
+        if modifier is None or not modifier.is_staff:
+            kwargs.pop('unit_price', None)
+
+        return super().update(modifier, **kwargs)
 
     def validate_created_by(self):
         """
