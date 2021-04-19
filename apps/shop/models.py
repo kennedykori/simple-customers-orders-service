@@ -680,6 +680,7 @@ class Order(AuditBase):
         order_item: OrderItem = self.get_item(item)
 
         # Update and return the updated order item
+        # noinspection PyTypeChecker
         return order_item.update(
             user,
             quantity=quantity or order_item.quantity,
@@ -709,7 +710,7 @@ class Order(AuditBase):
         :return: True if the given item is part of this order's item list,
                  False otherwise.
         """
-        return (item.pk,) in self.orderitem_set.values_list('item')
+        return self.orderitem_set.filter(item=item).exists()
 
     ##########################################################################
     # ORDER STATE MUTATORS
@@ -851,7 +852,7 @@ class Order(AuditBase):
         if not self.orderitem_set.exists():
             raise OrderEmptyError(
                 self,
-                'An order should contain at least one Order item before it '
+                'An order must contain at least one Order item before it '
                 'can be marked as "PENDING".'
             )
 
