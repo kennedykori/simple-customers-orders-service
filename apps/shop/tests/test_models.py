@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import List
 
 from django.contrib.auth import get_user_model
 
@@ -7,12 +8,20 @@ from ...core.tests.factories import AdminFactory, UserFactory
 from ...core.tests.test_models import AuditBaseTestCase
 
 from ..exceptions import (
+    ItemNotInOrderError,
     NotEnoughStockError,
     OperationForbiddenError,
     OrderEmptyError,
     OutOfStockError
 )
-from ..models import Customer, Employee, Inventory, Order, OrderItem
+from ..models import (
+    ZERO_AMOUNT,
+    Customer,
+    Employee,
+    Inventory,
+    Order,
+    OrderItem
+)
 
 from .factories import (
     CustomerFactory,
@@ -713,6 +722,12 @@ class OrderTests(AuditBaseTestCase):
     """
 
     def setUp(self) -> None:
+        # Create Employee instances
+        self.employee: Employee = EmployeeFactory.create()
+
+        # Create Customer instances
+        self.customer: Customer = CustomerFactory.create()
+
         # Create inventory items
         self.item1: Inventory = InventoryFactory.create(
             on_hand=1000,
@@ -724,6 +739,7 @@ class OrderTests(AuditBaseTestCase):
             warn_limit=100
         )
         self.item3: Inventory = InventoryFactory.create(no_stock=True)
+        self.items: List[Inventory] = InventoryFactory.create_batch(5)
 
         # Create order instances
         self.order: Order = OrderFactory.create()
@@ -734,11 +750,10 @@ class OrderTests(AuditBaseTestCase):
 
         # Create user instances
         self.staff: User = AdminFactory.create()
+        self.user: User = UserFactory.create()
 
     def test_add_item(self) -> None:
-        """
-        Tests for the **Order.approve()** method.
-        """
+        """Assert that the ``Order.add_item`` method works as expected."""
         # Dummy test objects
         big_price = Decimal('230.15')
 
@@ -748,13 +763,13 @@ class OrderTests(AuditBaseTestCase):
         # Assert that the order is in the expected state before making any
         # modifications
         self.assertFalse(order.orderitem_set.exists())
-        self.assertEqual(order.total_price, Decimal('0.00'))
+        self.assertEqual(order.total_price, ZERO_AMOUNT)
 
         # Add an item
         order_item = order.add_item(order.customer.user, self.item1, 100)
 
         # Assert that the order is in the correct state after the addition
-        self.assertTrue(order.orderitem_set.exists())
+        self.assertEqual(order.orderitem_set.count(), 1)
         self.assertEqual(order.total_price, self.item1.price * 100)
 
         # Assert that the created item entry is in the correct state
@@ -782,10 +797,12 @@ class OrderTests(AuditBaseTestCase):
         self.assertEqual(order_item.quantity, 150)
         self.assertEqual(order_item.unit_price, big_price)
 
-        # Assert that adding an out of stock item fails
-        with self.assertRaises(OutOfStockError):
-            order.add_item(order.customer.user, self.item3)
-
+    def test_adding_an_item_while_not_in_the_right_state_fails(self) -> None:
+        """
+        Assert that an inventory item can only be added to an order while the
+        order is in the "CREATED" or "PENDING" state. Otherwise, an
+        ``OperationForbiddenError`` should be raised.
+        """
         # Assert that adding an item to an order that is neither in the
         # "CREATED" or "PENDING" state fails
         self.assertRaises(
@@ -807,13 +824,26 @@ class OrderTests(AuditBaseTestCase):
             self.item1
         )
 
+    def test_adding_an_out_of_stock_item_fails(self) -> None:
+        """
+        Assert that an inventory item with no stock can not be added to an
+        order as per the specification of the ``Order`` model. Instead, an
+        ``OutOfStockError`` should be raised.
+        """
+        # Assert that adding an out of stock item fails
+        with self.assertRaises(OutOfStockError):
+            self.order.add_item(self.order.customer.user, self.item3)
+
+        # Assert that no modifications were made to the order
+        self.assertFalse(self.order.orderitem_set.exists())
+        self.assertEqual(self.order.total_price, ZERO_AMOUNT)
+
     def test_approve(self) -> None:
         """
-        Tests for the **Order.approve()** method.
+        Assert that the ``Order.approve()`` method works as expected.
         """
         # Dummy test objects
         comments: str = 'Approved'
-        employee: Employee = EmployeeFactory.create()
 
         # Get a created order instances
         order: Order = self.order
@@ -843,12 +873,12 @@ class OrderTests(AuditBaseTestCase):
         self.assertEqual(self.item2.on_hand, 250)
 
         # Approve the order
-        order.approve(employee, comments)
+        order.approve(self.employee, comments)
 
         # Assert that the order is in the expected state after the approval
         self.assertFalse(order.can_update_order_items)
         self.assertEqual(order.comments, comments)
-        self.assertEqual(order.handler, employee)
+        self.assertEqual(order.handler, self.employee)
         self.assertTrue(order.is_approved)
         self.assertFalse(order.is_created)
         self.assertIsNotNone(order.review_date)
@@ -857,7 +887,7 @@ class OrderTests(AuditBaseTestCase):
             order.total_price,
             (self.item1.price * 50) + (self.item2.price * 200)
         )
-        self.assertEqual(order.updated_by, employee.user)
+        self.assertEqual(order.updated_by, self.employee.user)
 
         # Assert that the stock was adjusted appropriately during approval
         self.item1.refresh_from_db()
@@ -868,53 +898,84 @@ class OrderTests(AuditBaseTestCase):
         self.assertTrue(self.item2.is_few_remaining)
         self.assertEqual(self.item2.on_hand, 50)
 
-        # Get a pending order instances
-        order1: Order = self.order3
-
-        # The order shouldn't have any items
-        self.assertFalse(order1.orderitem_set.exists())
-
-        # Assert that approving an order with an empty item list fails
-        self.assertRaises(OrderEmptyError, order1.approve, employee)
-
-        # Add an item to the order
-        order1.add_item(order1.customer.user, self.item2, 100)
-
-        # Assert that approving an order of more than available stock fails
-        self.assertRaises(NotEnoughStockError, order1.approve, employee)
+    def test_approving_an_order_while_not_in_the_right_state_fails(self)\
+            -> None:
+        """
+        Assert that an order can only be approved while the order is in the
+        "PENDING" state. Otherwise, an ``OperationForbiddenError`` should be
+        raised.
+        """
+        # Dummy test objects
+        comments: str = 'Approved'
 
         # Assert that attempting to approve an order that is not in the
         # "PENDING" fails
         self.assertRaises(
             OperationForbiddenError,
             self.order1.approve,
-            employee,
+            self.employee,
             comments
         )
         self.assertRaises(
             OperationForbiddenError,
             self.order2.approve,
-            employee,
+            self.employee,
             comments
         )
         self.assertRaises(
             OperationForbiddenError,
             self.order.approve,
-            employee,
+            self.employee,
             comments
         )
         self.assertRaises(
             OperationForbiddenError,
             self.order4.approve,
-            employee,
+            self.employee,
             comments
         )
 
+    def test_approving_an_empty_order_fails(self) -> None:
+        """
+        Assert that approving an item with an empty item list fails as per the
+        specification of the ``Order`` model. An ``OrderEmptyError`` should be
+        raised instead.
+        """
+        # Get a pending order instances
+        order: Order = self.order3
+
+        # The order shouldn't have any items
+        self.assertFalse(order.orderitem_set.exists())
+
+        # Assert that approving an order with an empty item list fails
+        self.assertRaises(OrderEmptyError, order.approve, self.employee)
+
+        # Assert that the state of the order wasn't changed
+        self.assertTrue(order.is_pending)
+
+    def test_approving_an_order_with_more_than_enough_stock_fails(self)\
+            -> None:
+        """
+        Assert that approving an order containing items of more than the
+        available stock results in a ``NotEnoughStockError`` being raised.
+        """
+        # Get a pending order instances
+        order: Order = self.order3
+
+        # Add an item to the order
+        order.add_item(order.customer.user, self.item2, 300)
+
+        # Assert that approving an order of more than available stock fails
+        self.assertRaises(NotEnoughStockError, order.approve, self.employee)
+
+        # Assert that the state of the order wasn't changed
+        self.assertTrue(order.is_pending)
+
     def test_cancel(self) -> None:
         """
-        Tests for the **Order.cancel()** method.
+        Assert that the ``Order.cancel()`` method works as expected.
         """
-        # Get a created order instances
+        # Get an order in the "CREATED" state
         order: Order = self.order
 
         # Assert that the order is in the expected state before making any
@@ -946,6 +1007,13 @@ class OrderTests(AuditBaseTestCase):
         self.assertTrue(self.order3.is_canceled)
         self.assertEqual(self.order3.updated_by, self.order3.customer.user)
 
+    def test_canceling_an_order_while_not_in_the_right_state_fails(self)\
+            -> None:
+        """
+        Assert that an order can only be canceled while the order is either in
+        the "CREATED" or "PENDING" state. Otherwise, an
+        ``OperationForbiddenError`` should be raised.
+        """
         # Assert that cancellation of orders not in the "CREATED" or "PENDING"
         # state results in an error
         self.assertRaises(
@@ -966,7 +1034,8 @@ class OrderTests(AuditBaseTestCase):
 
     def test_correct_object_creation(self) -> None:
         """
-        Tests for the **Order.objects.create()** method.
+        Assert that the ``Order.objects.create()`` method creates the expected
+        value.
         """
         # Dummy test objects
         customer: Customer = CustomerFactory.create()
@@ -988,21 +1057,75 @@ class OrderTests(AuditBaseTestCase):
         self.assertEqual(order.state, Order.OrderState.CREATED.choice_value)
         self.assertEqual(order.total_price, Decimal('0.00'))
 
+    def test_creation_by_a_non_admin_non_owning_user_fails(self) -> None:
+        """
+        Assert that only staff/admin users or the user instance associated
+        the customer object to be associated with the order instance to be
+        created can create the object.
+        """
+        # Assert that only admin/staff users or the user instance associated
+        # with the customer who will own the order can add the order.
+        with self.assertRaises(ModelValidationError) as cm:
+            Order.objects.create(
+                self.user,  # Should be `self.customer.user` or any admin user
+                customer=self.customer
+            )
+        self.assertIn('created_by', cm.exception.message_dict)
+        self.assertIn(
+            'Only staff users or the customer to be associated with this '
+            'order can add the order.',
+            cm.exception.message_dict.get('created_by')
+        )
+
     def test_get_item(self) -> None:
         """
-        Tests for the **Order.get_item()** method.
+        Assert that the ``Order.get_item()`` method returns the expected value.
         """
-        ...
+        # Add items to an order.
+        order_item1: OrderItem = self.order.add_item(self.staff, self.items[0])
+        order_item2: OrderItem = self.order.add_item(
+            self.staff,
+            self.items[1],
+            3
+        )
+        order_item3: OrderItem = self.order.add_item(
+            self.staff,
+            self.items[2],
+            6
+        )
+
+        # Assert that `.get_item()` returns the order-items of the items added
+        # above.
+        self.assertEqual(order_item1, self.order.get_item(self.items[0]))
+        self.assertEqual(order_item2, self.order.get_item(self.items[1]))
+        self.assertEqual(order_item3, self.order.get_item(self.items[2]))
+
+        # Assert that `get_item()` returns `None` for items not in the order.
+        self.assertIsNone(self.order.get_item(self.items[3]))
+        self.assertIsNone(self.order.get_item(self.items[4]))
 
     def test_has_item(self) -> None:
         """
-        Tests for the **Order.has_item()** method.
+        Assert that the ``Order.has_item()`` method returns the expected value.
         """
-        ...
+        # Add items to an order.
+        self.order.add_item(self.staff, self.items[0])
+        self.order.add_item(self.staff, self.items[1], 3)
+        self.order.add_item(self.staff, self.items[2], 6)
+
+        # Assert that `.has_item()` returns `True` for the items added above.
+        self.assertTrue(self.order.get_item(self.items[0]))
+        self.assertTrue(self.order.get_item(self.items[1]))
+        self.assertTrue(self.order.get_item(self.items[2]))
+
+        # Assert that `has_item()` returns `False` for items not in the order.
+        self.assertFalse(self.order.get_item(self.items[3]))
+        self.assertFalse(self.order.get_item(self.items[4]))
 
     def test_mark_ready_for_review(self) -> None:
         """
-        Tests for the **Order.mark_ready_for_review()** method.
+        Assert that the ``Order.mark_ready_for_review()`` method works as
+        expected.
         """
         # Get a created order instances
         order: Order = self.order
@@ -1013,15 +1136,6 @@ class OrderTests(AuditBaseTestCase):
         self.assertTrue(order.is_created)
         self.assertFalse(order.is_pending)
         self.assertEqual(order.state, Order.OrderState.CREATED.choice_value)
-        self.assertEqual(order.total_price, Decimal('0.00'))
-
-        # Assert that attempting to mark an order with an empty item list as
-        # "PENDING" fails
-        self.assertRaises(
-            OrderEmptyError,
-            order.mark_ready_for_review,
-            order.customer.user
-        )
 
         # Add an item to the order
         order.add_item(order.customer.user, self.item1, 50)
@@ -1036,6 +1150,33 @@ class OrderTests(AuditBaseTestCase):
         self.assertEqual(order.total_price, self.item1.price * 50)
         self.assertEqual(order.updated_by, order.customer.user)
 
+    def test_marking_an_empty_order_as_ready_fails(self) -> None:
+        """
+        Assert that marking an empty order as ready raises an
+        ``OrderEmptyError``.
+        """
+        # Get a created order instances
+        order: Order = self.order
+
+        # Assert that attempting to mark an order with an empty item list as
+        # "PENDING" fails
+        self.assertRaises(
+            OrderEmptyError,
+            order.mark_ready_for_review,
+            order.customer.user
+        )
+
+        # Assert that no modifications were made to the order
+        self.assertTrue(order.is_created)
+        self.assertEqual(order.orderitem_set.count(), 0)
+
+    def test_marking_an_order_ready_while_not_in_the_right_state_fails(self)\
+            -> None:
+        """
+        Assert that an order can only be marked as ready while the order is in
+        the "CREATED" state. Otherwise, an ``OperationForbiddenError`` should
+        be raised.
+        """
         # Assert that attempting to mark an order that is not in the "CREATED"
         # state as "PENDING" fails
         self.assertRaises(
@@ -1061,7 +1202,7 @@ class OrderTests(AuditBaseTestCase):
 
     def test_reject(self) -> None:
         """
-        Tests for the **Order.reject()** method.
+        Assert that the ``Order.reject()`` method works as expected.
         """
         # Dummy test objects
         comments: str = 'A good reason'
@@ -1093,38 +1234,112 @@ class OrderTests(AuditBaseTestCase):
         self.assertEqual(order.state, Order.OrderState.REJECTED.choice_value)
         self.assertEqual(order.updated_by, employee.user)
 
+    def test_rejecting_an_order_ready_while_not_in_the_right_state_fails(self)\
+            -> None:
+        """
+        Assert that an order can only be rejected while the order is in the
+        "PENDING" state. Otherwise, an ``OperationForbiddenError`` should be
+        raised.
+        """
+        # Dummy test objects
+        comments: str = 'A good reason'
+
         # Assert that attempting to reject an order that is not in the
         # "PENDING" fails
         self.assertRaises(
             OperationForbiddenError,
             self.order1.reject,
-            employee,
+            self.employee,
             comments
         )
         self.assertRaises(
             OperationForbiddenError,
             self.order2.reject,
-            employee,
+            self.employee,
             comments
         )
         self.assertRaises(
             OperationForbiddenError,
             self.order.reject,
-            employee,
+            self.employee,
             comments
         )
         self.assertRaises(
             OperationForbiddenError,
             self.order4.reject,
-            employee,
+            self.employee,
             comments
         )
 
     def test_remove_item(self) -> None:
         """
-        Tests for the **Order.remove_item()** method.
+        Assert that the ``Order.remove_item()`` method works as expected.
         """
-        ...
+        # Add items to an order.
+        self.order.add_item(self.staff, self.items[0])
+        self.order.add_item(self.staff, self.items[1], 3)
+        self.order.add_item(self.staff, self.items[2], 6)
+
+        # Remove an item
+        self.order.remove_item(self.items[0])
+
+        # Assert that the item was removed
+        self.assertEqual(self.order.orderitem_set.count(), 2)
+        self.assertFalse(self.order.has_item(self.items[0]))
+
+        # Remove another item and assert that the item was removed
+        self.order.remove_item(self.items[1])
+        self.assertEqual(self.order.orderitem_set.count(), 1)
+        self.assertFalse(self.order.has_item(self.items[1]))
+
+    def test_removing_a_non_existing_item_fails(self) -> None:
+        """
+        Assert that attempting to remove an item that is not in the order fails
+        by raising an ``ItemNotInOrderError``.
+        """
+        # Add items to an order.
+        self.order.add_item(self.staff, self.items[0])
+        self.order.add_item(self.staff, self.items[1], 3)
+
+        # Assert that attempting to remove items that are not in the order
+        # fails
+        self.assertRaises(
+            ItemNotInOrderError,
+            self.order.remove_item,
+            self.items[2]
+        )
+        self.assertRaises(
+            ItemNotInOrderError,
+            self.order.remove_item,
+            self.items[3]
+        )
+
+        # Assert that no modifications were made to the order
+        self.assertEqual(self.order.orderitem_set.count(), 2)
+
+    def test_removing_an_item_while_not_in_the_right_state_fails(self) -> None:
+        """
+        Assert that an inventory item can only be removed to an order while the
+        order is in the "CREATED" or "PENDING" state. Otherwise, an
+        ``OperationForbiddenError`` should be raised.
+        """
+        # Assert that removing an item to an order that is neither in the
+        # "CREATED" or "PENDING" state fails
+        self.assertRaises(
+            OperationForbiddenError,
+            self.order1.remove_item,
+            self.item1
+        )
+        self.assertRaises(
+            OperationForbiddenError,
+            self.order2.remove_item,
+            self.item1
+        )
+        self.assertRaises(
+            OperationForbiddenError,
+            self.order4.remove_item,
+            self.item1
+        )
 
     def test_str(self) -> None:
         """
@@ -1165,7 +1380,7 @@ class OrderTests(AuditBaseTestCase):
 
     def test_update(self) -> None:
         """
-        Tests for the **Order.update()** method.
+        Assert that the ``Order.update()`` method works as expected.
         """
         # Skip for now. The model's mutators should be used to perform any
         # updates on the model's instances
@@ -1173,18 +1388,131 @@ class OrderTests(AuditBaseTestCase):
 
     def test_update_item(self) -> None:
         """
-        Tests for the **Order.update_item()** method.
+        Assert that the ``Order.update_item()`` method works as expected.
         """
-        ...
+        # Dummy test objects
+        price1 = Decimal('100.00')
+        price2 = Decimal('150.75')
+        price3 = Decimal('180.25')
 
-    def tearDown(self) -> None:
-        # Clear any objects created
-        OrderItem.objects.all().delete()
-        Order.objects.all().delete()
-        Customer.objects.all().delete()
-        Inventory.objects.all().delete()
-        Employee.objects.all().delete()
-        User.objects.all().delete()
+        # Add items to an order.
+        self.order.add_item(self.staff, self.items[0], unit_price=price1)
+        self.order.add_item(self.staff, self.items[1], 3)
+        self.order.add_item(self.staff, self.items[2], 6, price2)
+
+        # Assert that we have the expected state after the update
+        self.assertEqual(self.order.orderitem_set.count(), 3)
+        self.assertEqual(
+            self.order.total_price,
+            (price1 * 1) + (price2 * 6) + (self.items[1].price * 3)
+        )
+
+        # Make an update
+        order_item: OrderItem = self.order.update_item(
+            self.staff,
+            self.items[0],
+            10
+        )
+
+        # Assert that the update produced the expected results
+        self.assertEqual(
+            self.order.total_price,
+            (price1 * 10) + (price2 * 6) + (self.items[1].price * 3)
+        )
+        self.assertEqual(order_item.quantity, 10)
+        self.assertEqual(order_item.total_price, price1 * 10)
+
+        # Make another update and assert that the results are as expected
+        self.order.update_item(self.staff, self.items[1], 2, price3)
+        self.assertEqual(
+            self.order.total_price,
+            (price1 * 10) + (price2 * 6) + (price3 * 2)
+        )
+
+    def test_updating_a_non_existing_item_fails(self) -> None:
+        """
+        Assert that attempting to update an item that is not in the order fails
+        by raising an ``ItemNotInOrderError``.
+        """
+        # Add items to an order.
+        self.order.add_item(self.staff, self.items[0])
+        self.order.add_item(self.staff, self.items[1], 3)
+
+        # Assert that attempting to update items that are not in the order
+        # fails
+        self.assertRaises(
+            ItemNotInOrderError,
+            self.order.update_item,
+            self.staff,
+            self.items[2],
+            2
+        )
+        self.assertRaises(
+            ItemNotInOrderError,
+            self.order.update_item,
+            self.staff,
+            self.items[3],
+            5,
+            Decimal('60.50')
+        )
+
+        # Assert that no modifications were made to the order
+        self.assertEqual(
+            self.order.total_price,
+            self.items[0].price + self.items[1].price * 3
+        )
+
+    def test_updating_an_item_while_not_in_the_right_state_fails(self) -> None:
+        """
+        Assert that an inventory item in an order can only be updated while the
+        order is in the "CREATED" or "PENDING" state. Otherwise, an
+        ``OperationForbiddenError`` should be raised.
+        """
+        # Assert that updating an item in an order that is neither in the
+        # "CREATED" or "PENDING" state fails
+        self.assertRaises(
+            OperationForbiddenError,
+            self.order1.update_item,
+            self.order1.customer.user,
+            self.item1,
+            6
+        )
+        self.assertRaises(
+            OperationForbiddenError,
+            self.order2.update_item,
+            self.order2.customer.user,
+            self.item1,
+            7,
+            Decimal('50.00')
+        )
+        self.assertRaises(
+            OperationForbiddenError,
+            self.order4.update_item,
+            self.order4.customer.user,
+            self.item1,
+            2
+        )
+
+    def test_update_by_a_non_admin_non_owning_user_fails(self) -> None:
+        """
+        Assert that only staff/admin users or the user instance associated with
+        the customer object associated with the order instance to be modified
+        can update the order.
+        """
+        # Assert that only admin/staff users or the user instance associated
+        # with the customer who owns the order can update the order.
+        with self.assertRaises(ModelValidationError) as cm:
+            self.order.cancel(
+                # Should be `self.order.customer.user` or any admin user
+                self.user,
+                self.items[0],
+            )
+        self.assertIn('updated_by', cm.exception.message_dict)
+        self.assertIn(
+            "Only staff users or the user associated with an order's "
+            "customer can modify the order's details.",
+            cm.exception.message_dict.get('updated_by')
+        )
 
 
 class OrderItemTests(AuditBaseTestCase):
